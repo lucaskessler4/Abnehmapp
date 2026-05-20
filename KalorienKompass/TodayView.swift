@@ -3,6 +3,12 @@ import SwiftUI
 import UIKit
 
 struct TodayView: View {
+    private enum FocusedField: Hashable {
+        case foodName
+        case calories
+        case protein
+    }
+
     @EnvironmentObject private var store: CalorieStore
     @State private var foodName = ""
     @State private var calories = ""
@@ -10,14 +16,15 @@ struct TodayView: View {
     @State private var shouldSaveMeal = false
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var selectedImageData: Data?
+    @FocusState private var focusedField: FocusedField?
 
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColor.paper.ignoresSafeArea()
+                AppBackground()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 20) {
                         header
                         progressCard
                         quickAddCard
@@ -26,11 +33,25 @@ struct TodayView: View {
                     }
                     .padding(18)
                 }
+                .scrollDismissesKeyboard(.interactively)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = nil
+                }
             }
             .navigationTitle("Heute")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AppearanceMenu()
+                }
+
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+
+                    Button("Fertig") {
+                        focusedField = nil
+                    }
+                    .font(.body.weight(.semibold))
                 }
             }
         }
@@ -38,19 +59,30 @@ struct TodayView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Kalorien Kompass")
-                .font(.largeTitle.bold())
-                .foregroundStyle(AppColor.ink)
-            Text("Ein klarer Blick auf deinen Tag, ohne Kalorienbuchhaltung als Strafarbeit.")
-                .font(.subheadline)
-                .foregroundStyle(AppColor.muted)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Kalorien Kompass")
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .foregroundStyle(AppColor.ink)
+                    Text("Ein klarer Blick auf deinen Tag.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColor.muted)
+                }
+
+                Spacer()
+
+                Text(Date.now, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppColor.ink)
+                    .glassPill()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var progressCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(store.todaysCalories)")
                         .font(.system(size: 46, weight: .bold, design: .rounded))
@@ -70,11 +102,34 @@ struct TodayView: View {
                         .font(.headline)
                         .foregroundStyle(store.remainingCalories >= 0 ? AppColor.leaf : .red)
                 }
+                .glassPill()
             }
 
-            ProgressView(value: store.calorieProgress)
-                .tint(store.remainingCalories >= 0 ? AppColor.leaf : .red)
-                .scaleEffect(x: 1, y: 2.4, anchor: .center)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(.thinMaterial)
+
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    store.remainingCalories >= 0 ? AppColor.leaf : .red,
+                                    AppColor.sky.opacity(0.95)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(10, proxy.size.width * store.calorieProgress))
+                }
+            }
+            .frame(height: 14)
+            .clipShape(Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+            }
 
             HStack(spacing: 10) {
                 StatTile(title: "Protein", value: "\(store.todaysProtein) g", systemImage: "bolt.heart.fill", color: AppColor.sky)
@@ -92,16 +147,23 @@ struct TodayView: View {
 
             TextField("Name, z. B. Frühstück", text: $foodName)
                 .textInputAutocapitalization(.words)
-                .textFieldStyle(.roundedBorder)
+                .focused($focusedField, equals: .foodName)
+                .submitLabel(.next)
+                .onSubmit {
+                    focusedField = .calories
+                }
+                .glassField()
 
             HStack(spacing: 10) {
                 TextField("kcal", text: $calories)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .focused($focusedField, equals: .calories)
+                    .glassField()
 
                 TextField("Protein g", text: $protein)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .focused($focusedField, equals: .protein)
+                    .glassField()
             }
 
             HStack(spacing: 12) {
@@ -141,6 +203,7 @@ struct TodayView: View {
             .buttonStyle(.borderedProminent)
             .tint(AppColor.leaf)
             .disabled(Int(calories) == nil)
+            .controlSize(.large)
         }
         .surface()
         .onChange(of: selectedPhoto) { _, newPhoto in
@@ -214,8 +277,12 @@ struct TodayView: View {
         }
         .padding(14)
         .frame(width: 190, alignment: .leading)
-        .background(AppColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+        }
     }
 
     private var entriesSection: some View {
@@ -263,8 +330,12 @@ struct TodayView: View {
                             .accessibilityLabel("\(entry.name) löschen")
                         }
                         .padding(14)
-                        .background(AppColor.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                        }
                     }
                 }
             }
@@ -274,6 +345,7 @@ struct TodayView: View {
     private func addFood() {
         guard let calorieValue = Int(calories) else { return }
         let proteinValue = Int(protein) ?? 0
+        focusedField = nil
 
         store.addEntry(
             name: foodName,

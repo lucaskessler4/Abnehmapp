@@ -280,6 +280,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -288,7 +289,7 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.lucaskessler.kalorienkompass";
+				PRODUCT_BUNDLE_IDENTIFIER = de.lucaskessler.kalorienkompass;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -303,6 +304,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -311,7 +313,7 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.lucaskessler.kalorienkompass";
+				PRODUCT_BUNDLE_IDENTIFIER = de.lucaskessler.kalorienkompass;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -322,20 +324,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A0000C02DDDF00100112233 /* Build configuration list for PBXProject "KalorienKompass" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1A0000D02DDDF00100112233 /* Debug */,
-				1A0000E02DDDF00100112233 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1A0000802DDDF00100112233 /* Build configuration list for PBXNativeTarget "KalorienKompass" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0000F02DDDF00100112233 /* Debug */,
 				1A0001002DDDF00100112233 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000C02DDDF00100112233 /* Build configuration list for PBXProject "KalorienKompass" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000D02DDDF00100112233 /* Debug */,
+				1A0000E02DDDF00100112233 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
