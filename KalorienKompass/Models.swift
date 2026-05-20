@@ -17,6 +17,12 @@ struct SavedMeal: Identifiable, Codable, Equatable {
     var imageData: Data? = nil
 }
 
+struct DailyNote: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var text: String
+    var date: Date
+}
+
 enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
     case system = "System"
     case light = "Hell"

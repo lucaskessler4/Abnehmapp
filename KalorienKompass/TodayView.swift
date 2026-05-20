@@ -7,6 +7,7 @@ struct TodayView: View {
         case foodName
         case calories
         case protein
+        case note
     }
 
     @EnvironmentObject private var store: CalorieStore
@@ -14,6 +15,8 @@ struct TodayView: View {
     @State private var calories = ""
     @State private var protein = ""
     @State private var shouldSaveMeal = false
+    @State private var noteText = ""
+    @State private var editingNote: DailyNote?
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var selectedImageData: Data?
     @FocusState private var focusedField: FocusedField?
@@ -28,6 +31,7 @@ struct TodayView: View {
                         header
                         progressCard
                         quickAddCard
+                        notesSection
                         savedMealsSection
                         entriesSection
                     }
@@ -40,6 +44,11 @@ struct TodayView: View {
                 }
             }
             .navigationTitle("Heute")
+            .sheet(item: $editingNote) { note in
+                NoteEditorView(note: note)
+                    .environmentObject(store)
+                    .presentationDetents([.medium, .large])
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AppearanceMenu()
@@ -236,6 +245,98 @@ struct TodayView: View {
         }
     }
 
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Notizen", systemImage: "note.text")
+                .font(.headline)
+                .foregroundStyle(AppColor.ink)
+
+            TextEditor(text: $noteText)
+                .frame(minHeight: 88)
+                .scrollContentBackground(.hidden)
+                .focused($focusedField, equals: .note)
+                .padding(10)
+                .background {
+                    RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                        .fill(.thinMaterial)
+                }
+                .overlay(alignment: .topLeading) {
+                    if noteText.isEmpty {
+                        Text("Gedanken, Hunger, Planung ...")
+                            .font(.body)
+                            .foregroundStyle(AppColor.muted)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 18)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                        .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                }
+
+            Button {
+                addNote()
+            } label: {
+                Label("Notiz speichern", systemImage: "checkmark")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AppColor.leaf)
+            .disabled(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .controlSize(.large)
+
+            if !store.todaysNotes.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(store.todaysNotes) { note in
+                        noteRow(note)
+                    }
+                }
+            }
+        }
+        .surface()
+    }
+
+    private func noteRow(_ note: DailyNote) -> some View {
+        Button {
+            editingNote = note
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "text.alignleft")
+                    .font(.headline)
+                    .foregroundStyle(AppColor.leaf)
+                    .frame(width: 36, height: 36)
+                    .background(AppColor.mint.opacity(0.85), in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(note.text)
+                        .font(.subheadline)
+                        .foregroundStyle(AppColor.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(note.date, format: .dateTime.hour().minute())
+                        .font(.caption)
+                        .foregroundStyle(AppColor.muted)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "square.and.pencil")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppColor.muted)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Notiz öffnen und bearbeiten")
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+        }
+    }
+
     private func savedMealCard(_ meal: SavedMeal) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             MealImageThumbnail(imageData: meal.imageData, size: 70)
@@ -371,6 +472,12 @@ struct TodayView: View {
         selectedImageData = nil
     }
 
+    private func addNote() {
+        store.addNote(text: noteText)
+        noteText = ""
+        focusedField = nil
+    }
+
     private func loadSelectedPhoto(_ item: PhotosPickerItem?) {
         guard let item else { return }
 
@@ -402,4 +509,76 @@ struct TodayView: View {
 #Preview {
     TodayView()
         .environmentObject(CalorieStore.preview)
+}
+
+private struct NoteEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: CalorieStore
+    @State private var editedText: String
+
+    let note: DailyNote
+
+    init(note: DailyNote) {
+        self.note = note
+        _editedText = State(initialValue: note.text)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground()
+
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(note.date, format: .dateTime.weekday(.wide).day().month(.wide).hour().minute())
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppColor.muted)
+
+                    TextEditor(text: $editedText)
+                        .frame(minHeight: 220)
+                        .scrollContentBackground(.hidden)
+                        .padding(10)
+                        .background {
+                            RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                .fill(.thinMaterial)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                        }
+
+                    Spacer(minLength: 0)
+
+                    Button(role: .destructive) {
+                        store.deleteNote(note)
+                        dismiss()
+                    } label: {
+                        Label("Notiz löschen", systemImage: "trash")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+                .padding(18)
+            }
+            .navigationTitle("Notiz bearbeiten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Speichern") {
+                        store.updateNote(note, text: editedText)
+                        dismiss()
+                    }
+                    .font(.body.weight(.semibold))
+                    .disabled(editedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
 }
