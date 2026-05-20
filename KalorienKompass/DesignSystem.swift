@@ -55,6 +55,53 @@ enum AppColor {
             ? UIColor(red: 0.15, green: 0.17, blue: 0.18, alpha: 1)
             : UIColor(red: 0.97, green: 0.98, blue: 0.97, alpha: 1)
     })
+
+    static let glassHighlight = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.20)
+            : UIColor.white.withAlphaComponent(0.78)
+    })
+
+    static let glassStroke = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.15)
+            : UIColor.white.withAlphaComponent(0.68)
+    })
+}
+
+enum AppRadius {
+    static let card: CGFloat = 24
+    static let control: CGFloat = 16
+    static let tile: CGFloat = 18
+}
+
+struct AppBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    AppColor.paper,
+                    AppColor.sky.opacity(0.46),
+                    AppColor.mint.opacity(0.42),
+                    AppColor.paper
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [
+                    .white.opacity(0.48),
+                    .clear,
+                    AppColor.peach.opacity(0.20)
+                ],
+                startPoint: .top,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        }
+    }
 }
 
 struct SurfaceModifier: ViewModifier {
@@ -63,15 +110,63 @@ struct SurfaceModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(18)
-            .background(AppColor.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.06), radius: 14, y: 6)
+            .background {
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+            }
+            .overlay(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                AppColor.glassHighlight,
+                                .white.opacity(0.04),
+                                .clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+                    .blendMode(.screen)
+            }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.32 : 0.10), radius: 24, y: 12)
     }
 }
 
 extension View {
     func surface() -> some View {
         modifier(SurfaceModifier())
+    }
+
+    func glassField() -> some View {
+        padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background {
+                RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                    .fill(.thinMaterial)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+            }
+    }
+
+    func glassPill() -> some View {
+        padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(.thinMaterial)
+            }
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+            }
     }
 }
 
@@ -89,6 +184,13 @@ struct AppearanceMenu: View {
         } label: {
             Image(systemName: iconName(for: store.appearanceMode))
                 .font(.body.weight(.semibold))
+                .foregroundStyle(AppColor.ink)
+                .frame(width: 38, height: 38)
+                .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                }
         }
         .accessibilityLabel("Darstellung ändern")
     }
@@ -113,9 +215,15 @@ struct StatTile: View {
             Image(systemName: systemImage)
                 .font(.headline)
                 .foregroundStyle(AppColor.ink)
-                .frame(width: 34, height: 34)
-                .background(color)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(width: 38, height: 38)
+                .background {
+                    RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                        .fill(color.opacity(0.86))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                        .strokeBorder(.white.opacity(0.58), lineWidth: 1)
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -129,6 +237,12 @@ struct StatTile: View {
             }
 
             Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
         }
     }
 }
@@ -153,6 +267,10 @@ struct MealImageThumbnail: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+        }
     }
 }

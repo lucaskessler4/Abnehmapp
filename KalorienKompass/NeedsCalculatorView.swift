@@ -6,10 +6,10 @@ struct NeedsCalculatorView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppColor.paper.ignoresSafeArea()
+                AppBackground()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 20) {
                         headline
                         resultCard
                         profileForm
@@ -29,7 +29,7 @@ struct NeedsCalculatorView: View {
     private var headline: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Dein Tagesziel")
-                .font(.largeTitle.bold())
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(AppColor.ink)
             Text("Berechnet mit der Mifflin-St Jeor-Formel plus Aktivität und Zieltempo.")
                 .font(.subheadline)
@@ -39,9 +39,24 @@ struct NeedsCalculatorView: View {
 
     private var resultCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("\(store.profile.targetCalories) kcal")
-                .font(.system(size: 48, weight: .bold, design: .rounded))
-                .foregroundStyle(AppColor.leaf)
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(store.profile.targetCalories)")
+                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColor.leaf)
+                Text("kcal")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppColor.muted)
+                Spacer()
+                Image(systemName: "target")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(AppColor.leaf)
+                    .frame(width: 48, height: 48)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                            .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                    }
+            }
 
             HStack(spacing: 10) {
                 StatTile(title: "Grundumsatz", value: "\(store.profile.basalMetabolicRate) kcal", systemImage: "flame.fill", color: AppColor.peach)
@@ -64,20 +79,28 @@ struct NeedsCalculatorView: View {
             }
             .pickerStyle(.segmented)
 
-            Stepper("Alter: \(store.profile.age)", value: $store.profile.age, in: 14...90)
-            Stepper("Größe: \(store.profile.heightCentimeters) cm", value: $store.profile.heightCentimeters, in: 130...220)
+            VStack(spacing: 10) {
+                Stepper("Alter: \(store.profile.age)", value: $store.profile.age, in: 14...90)
+                Divider().opacity(0.45)
+                Stepper("Größe: \(store.profile.heightCentimeters) cm", value: $store.profile.heightCentimeters, in: 130...220)
+            }
+            .glassField()
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Aktuelles Gewicht: \(store.profile.weightKilograms, specifier: "%.1f") kg")
+                    .font(.subheadline.weight(.semibold))
                 Slider(value: $store.profile.weightKilograms, in: 40...180, step: 0.5)
                     .tint(AppColor.leaf)
             }
+            .glassField()
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Zielgewicht: \(store.profile.targetWeightKilograms, specifier: "%.1f") kg")
+                    .font(.subheadline.weight(.semibold))
                 Slider(value: $store.profile.targetWeightKilograms, in: 40...180, step: 0.5)
                     .tint(AppColor.leaf)
             }
+            .glassField()
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Aktivität")
@@ -110,8 +133,12 @@ struct NeedsCalculatorView: View {
                             .foregroundStyle(AppColor.leaf)
                     }
                     .padding(12)
-                    .background(AppColor.field)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                            .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                    }
                 }
             }
 
@@ -120,6 +147,8 @@ struct NeedsCalculatorView: View {
                     Text(goal.rawValue).tag(goal)
                 }
             }
+            .pickerStyle(.menu)
+            .glassField()
         }
         .font(.body)
         .surface()
