@@ -7,6 +7,7 @@ struct NeedsCalculatorView: View {
     }
 
     @EnvironmentObject private var store: CalorieStore
+    @Environment(\.bottomDockClearance) private var bottomDockClearance
     @State private var weightInput = ""
     @State private var targetWeightInput = ""
     @FocusState private var focusedField: FocusedField?
@@ -23,6 +24,7 @@ struct NeedsCalculatorView: View {
                         profileForm
                     }
                     .padding(18)
+                    .padding(.bottom, bottomDockClearance)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }

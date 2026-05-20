@@ -13,6 +13,7 @@ struct TodayView: View {
     }
 
     @EnvironmentObject private var store: CalorieStore
+    @Environment(\.bottomDockClearance) private var bottomDockClearance
     @State private var foodName = ""
     @State private var calories = ""
     @State private var protein = ""
@@ -53,6 +54,7 @@ struct TodayView: View {
                         }
                     }
                     .padding(18)
+                    .padding(.bottom, bottomDockClearance)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .contentShape(Rectangle())

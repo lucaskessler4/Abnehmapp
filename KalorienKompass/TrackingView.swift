@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TrackingView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.bottomDockClearance) private var bottomDockClearance
     @EnvironmentObject private var store: CalorieStore
     @EnvironmentObject private var healthDataManager: HealthDataManager
     @State private var selectedSource: ActivitySource = .garmin
@@ -28,6 +29,7 @@ struct TrackingView: View {
                         activityList
                     }
                     .padding(18)
+                    .padding(.bottom, bottomDockClearance)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }

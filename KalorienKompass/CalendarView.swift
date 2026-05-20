@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CalendarView: View {
     @EnvironmentObject private var store: CalorieStore
+    @Environment(\.bottomDockClearance) private var bottomDockClearance
     @State private var displayedMonth = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
 
@@ -41,6 +42,7 @@ struct CalendarView: View {
                         selectedDayCard
                     }
                     .padding(18)
+                    .padding(.bottom, bottomDockClearance)
                 }
             }
             .navigationTitle("Kalender")

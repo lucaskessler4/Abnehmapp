@@ -7,6 +7,7 @@ import AVFoundation
 
 struct FoodScanView: View {
     @EnvironmentObject private var store: CalorieStore
+    @Environment(\.bottomDockClearance) private var bottomDockClearance
 
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var pickedImage: UIImage?
@@ -40,6 +41,7 @@ struct FoodScanView: View {
                         resultCard
                     }
                     .padding(18)
+                    .padding(.bottom, bottomDockClearance)
                 }
             }
             .navigationTitle("Scan")
