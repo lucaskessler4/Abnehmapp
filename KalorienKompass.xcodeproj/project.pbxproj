@@ -293,10 +293,11 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera später, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Kalorien Kompass liest aktive Energie aus Apple Health, um Aktivitätskalorien in dein Tagesbudget einzurechnen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
@@ -320,10 +321,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera später, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Kalorien Kompass liest aktive Energie aus Apple Health, um Aktivitätskalorien in dein Tagesbudget einzurechnen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
