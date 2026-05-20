@@ -15,6 +15,11 @@ struct ContentView: View {
                     Label("Bedarf", systemImage: "target")
                 }
 
+            TrackingView()
+                .tabItem {
+                    Label("Tracking", systemImage: "figure.run")
+                }
+
             FoodScanView()
                 .tabItem {
                     Label("Scan", systemImage: "camera.viewfinder")
@@ -36,4 +41,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(CalorieStore.preview)
+        .environmentObject(HealthDataManager())
 }

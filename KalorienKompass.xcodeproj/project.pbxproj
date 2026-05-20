@@ -16,6 +16,8 @@
 		1A0000172DDDF00100112233 /* FoodScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000072DDDF00100112233 /* FoodScanView.swift */; };
 		1A0000182DDDF00100112233 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000082DDDF00100112233 /* DesignSystem.swift */; };
 		1A0000192DDDF00100112233 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000092DDDF00100112233 /* Assets.xcassets */; };
+		1A00001A2DDDF00100112233 /* TrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000A2DDDF00100112233 /* TrackingView.swift */; };
+		1A00001B2DDDF00100112233 /* HealthDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00000B2DDDF00100112233 /* HealthDataManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +30,9 @@
 		1A0000072DDDF00100112233 /* FoodScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodScanView.swift; sourceTree = "<group>"; };
 		1A0000082DDDF00100112233 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		1A0000092DDDF00100112233 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A00000A2DDDF00100112233 /* TrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingView.swift; sourceTree = "<group>"; };
+		1A00000B2DDDF00100112233 /* HealthDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataManager.swift; sourceTree = "<group>"; };
+		1A00000C2DDDF00100112233 /* KalorienKompass.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KalorienKompass.entitlements; sourceTree = "<group>"; };
 		1A0000202DDDF00100112233 /* KalorienKompass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KalorienKompass.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -59,9 +64,12 @@
 				1A0000042DDDF00100112233 /* CalorieStore.swift */,
 				1A0000052DDDF00100112233 /* TodayView.swift */,
 				1A0000062DDDF00100112233 /* NeedsCalculatorView.swift */,
+				1A00000A2DDDF00100112233 /* TrackingView.swift */,
+				1A00000B2DDDF00100112233 /* HealthDataManager.swift */,
 				1A0000072DDDF00100112233 /* FoodScanView.swift */,
 				1A0000082DDDF00100112233 /* DesignSystem.swift */,
 				1A0000092DDDF00100112233 /* Assets.xcassets */,
+				1A00000C2DDDF00100112233 /* KalorienKompass.entitlements */,
 			);
 			path = KalorienKompass;
 			sourceTree = "<group>";
@@ -149,6 +157,8 @@
 				1A0000142DDDF00100112233 /* CalorieStore.swift in Sources */,
 				1A0000152DDDF00100112233 /* TodayView.swift in Sources */,
 				1A0000162DDDF00100112233 /* NeedsCalculatorView.swift in Sources */,
+				1A00001A2DDDF00100112233 /* TrackingView.swift in Sources */,
+				1A00001B2DDDF00100112233 /* HealthDataManager.swift in Sources */,
 				1A0000172DDDF00100112233 /* FoodScanView.swift in Sources */,
 				1A0000182DDDF00100112233 /* DesignSystem.swift in Sources */,
 			);
@@ -277,14 +287,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = KalorienKompass/KalorienKompass.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
+				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera später, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Kalorien Kompass liest aktive Energie aus Apple Health, um Aktivitätskalorien in dein Tagesbudget einzurechnen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -302,13 +315,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = KalorienKompass/KalorienKompass.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
+				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kalorien Kompass nutzt die Kamera später, um Mahlzeiten zu fotografieren und Kalorienvorschläge zu erstellen.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Kalorien Kompass liest aktive Energie aus Apple Health, um Aktivitätskalorien in dein Tagesbudget einzurechnen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

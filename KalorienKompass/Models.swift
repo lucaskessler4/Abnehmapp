@@ -23,6 +23,39 @@ struct DailyNote: Identifiable, Codable, Equatable {
     var date: Date
 }
 
+enum ActivitySource: String, Codable, CaseIterable, Identifiable {
+    case appleHealth = "Apple Health"
+    case garmin = "Garmin"
+    case manual = "Manuell"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .appleHealth: return "Apple Health"
+        case .garmin: return "Garmin Connect"
+        case .manual: return "Manuell"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .appleHealth: return "heart.text.square.fill"
+        case .garmin: return "figure.run.circle.fill"
+        case .manual: return "plus.circle.fill"
+        }
+    }
+}
+
+struct ActivityCalorieEntry: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var source: ActivitySource
+    var calories: Int
+    var date: Date
+    var note: String = ""
+    var replacesSourceForDay = false
+}
+
 enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
     case system = "System"
     case light = "Hell"
