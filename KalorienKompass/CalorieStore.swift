@@ -168,6 +168,31 @@ final class CalorieStore: ObservableObject {
         return summaries
     }
 
+    func historicalTrackedDaySummaries(until endDate: Date = .now) -> [DayCalorieSummary] {
+        let trackedDates = entries.map(\.date) + activityEntries.map(\.date)
+        guard let earliestTrackedDate = trackedDates.min() else { return [] }
+
+        let startDay = calendar.startOfDay(for: earliestTrackedDate)
+        let endDay = calendar.startOfDay(for: endDate)
+        guard startDay <= endDay else { return [] }
+
+        var day = startDay
+        var summaries: [DayCalorieSummary] = []
+
+        while day <= endDay {
+            let summary = daySummary(for: day)
+            let isTracked = summary.consumedCalories > 0 || summary.activityCalories > 0
+            if isTracked {
+                summaries.append(summary)
+            }
+
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
+        return summaries
+    }
+
     func addEntry(name: String, calories: Int, protein: Int, imageData: Data? = nil) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let entry = FoodEntry(

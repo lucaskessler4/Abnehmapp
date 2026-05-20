@@ -30,6 +30,46 @@ struct CalendarView: View {
         monthSummaries.filter(isTracked).count
     }
 
+    private var trackedHistorySummaries: [DayCalorieSummary] {
+        store.historicalTrackedDaySummaries()
+    }
+
+    private var averageDailyDeficit: Int? {
+        guard !trackedHistorySummaries.isEmpty else { return nil }
+        let totalBalance = trackedHistorySummaries.reduce(0) { $0 + $1.balance }
+        let average = Double(totalBalance) / Double(trackedHistorySummaries.count)
+        return Int(average.rounded())
+    }
+
+    private var weightLossStyle: String? {
+        guard let averageDailyDeficit else { return nil }
+        switch averageDailyDeficit {
+        case ..<1:
+            return "Kein Defizit"
+        case 1..<250:
+            return "Locker"
+        case 250..<550:
+            return "Normal"
+        case 550..<800:
+            return "Ambitioniert"
+        default:
+            return "Aggressiv"
+        }
+    }
+
+    private var estimatedGoalDate: Date? {
+        let remainingKilograms = store.profile.remainingKilograms
+        guard remainingKilograms > 0 else { return calendar.startOfDay(for: .now) }
+
+        guard let averageDailyDeficit else { return nil }
+        let dailyDeficit = max(0, averageDailyDeficit)
+        guard dailyDeficit > 0 else { return nil }
+
+        let totalDeficitNeeded = remainingKilograms * 7_700
+        let daysNeeded = Int(ceil(totalDeficitNeeded / Double(dailyDeficit)))
+        return calendar.date(byAdding: .day, value: daysNeeded, to: calendar.startOfDay(for: .now))
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -102,6 +142,41 @@ struct CalendarView: View {
             HStack(spacing: 10) {
                 StatTile(title: "Defizit-Tage", value: "\(monthDeficitCount)", systemImage: "checkmark.seal.fill", color: AppColor.mint)
                 StatTile(title: "Getrackt", value: "\(monthTrackedCount)", systemImage: "calendar", color: AppColor.sky)
+            }
+
+            Group {
+                if let estimatedGoalDate {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            "Zielgewicht ca. am \(estimatedGoalDate.formatted(.dateTime.day().month(.wide).year()))",
+                            systemImage: "flag.checkered"
+                        )
+                        .foregroundStyle(AppColor.leaf)
+
+                        if let averageDailyDeficit, let weightLossStyle {
+                            Text("Ø Defizit: \(averageDailyDeficit) kcal/Tag · Stil: \(weightLossStyle)")
+                                .foregroundStyle(AppColor.muted)
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Mit aktuellem Durchschnitt kein Ziel-Datum berechenbar.", systemImage: "flag.checkered")
+                            .foregroundStyle(AppColor.muted)
+
+                        if let averageDailyDeficit, let weightLossStyle {
+                            Text("Ø Defizit: \(averageDailyDeficit) kcal/Tag · Stil: \(weightLossStyle)")
+                                .foregroundStyle(AppColor.muted)
+                        }
+                    }
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
             }
 
             LazyVGrid(columns: columns, spacing: 8) {
