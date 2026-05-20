@@ -22,7 +22,11 @@ struct CalendarView: View {
     }
 
     private var monthDeficitCount: Int {
-        monthSummaries.filter { $0.hasDeficit }.count
+        monthSummaries.filter { isTracked($0) && $0.hasDeficit }.count
+    }
+
+    private var monthTrackedCount: Int {
+        monthSummaries.filter(isTracked).count
     }
 
     var body: some View {
@@ -95,7 +99,7 @@ struct CalendarView: View {
 
             HStack(spacing: 10) {
                 StatTile(title: "Defizit-Tage", value: "\(monthDeficitCount)", systemImage: "checkmark.seal.fill", color: AppColor.mint)
-                StatTile(title: "Monatstage", value: "\(monthSummaries.count)", systemImage: "calendar", color: AppColor.sky)
+                StatTile(title: "Getrackt", value: "\(monthTrackedCount)", systemImage: "calendar", color: AppColor.sky)
             }
 
             LazyVGrid(columns: columns, spacing: 8) {
@@ -120,7 +124,9 @@ struct CalendarView: View {
     }
 
     private var selectedDayCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let tracked = isTracked(selectedSummary)
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text(selectedDate.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.headline)
                 .foregroundStyle(AppColor.ink)
@@ -130,7 +136,11 @@ struct CalendarView: View {
                 StatTile(title: "Ziel", value: "\(selectedSummary.targetCalories) kcal", systemImage: "target", color: AppColor.sky)
             }
 
-            if selectedSummary.hasDeficit {
+            if !tracked {
+                Label("Kein Tracking an diesem Tag", systemImage: "minus.circle")
+                    .font(.headline)
+                    .foregroundStyle(AppColor.muted)
+            } else if selectedSummary.hasDeficit {
                 Label("Defizit: \(selectedSummary.balance) kcal", systemImage: "checkmark.circle.fill")
                     .font(.headline)
                     .foregroundStyle(AppColor.leaf)
@@ -149,6 +159,7 @@ struct CalendarView: View {
 
     private func dayCell(for date: Date) -> some View {
         let summary = summariesByDay[calendar.startOfDay(for: date)] ?? store.daySummary(for: date)
+        let tracked = isTracked(summary)
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
 
         return Button {
@@ -157,17 +168,22 @@ struct CalendarView: View {
             VStack(spacing: 4) {
                 Text(date.formatted(.dateTime.day()))
                     .font(.subheadline.weight(.bold))
-                Text(summary.hasDeficit ? "-\(summary.balance)" : "+\(abs(summary.balance))")
-                    .font(.caption2.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                if tracked {
+                    Text(summary.hasDeficit ? "-\(summary.balance)" : "+\(abs(summary.balance))")
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else {
+                    Text("—")
+                        .font(.caption2.weight(.semibold))
+                }
             }
-            .foregroundStyle(summary.hasDeficit ? AppColor.ink : .white)
+            .foregroundStyle(dayForegroundColor(summary: summary, tracked: tracked))
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(summary.hasDeficit ? AppColor.mint : Color.red.opacity(0.75))
+                    .fill(dayBackgroundColor(summary: summary, tracked: tracked))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -175,6 +191,21 @@ struct CalendarView: View {
             }
         }
         .buttonStyle(.plain)
+        .opacity(tracked ? 1 : 0.55)
+    }
+
+    private func isTracked(_ summary: DayCalorieSummary) -> Bool {
+        summary.consumedCalories > 0 || summary.activityCalories > 0
+    }
+
+    private func dayBackgroundColor(summary: DayCalorieSummary, tracked: Bool) -> Color {
+        guard tracked else { return AppColor.field }
+        return summary.hasDeficit ? AppColor.mint : Color.red.opacity(0.75)
+    }
+
+    private func dayForegroundColor(summary: DayCalorieSummary, tracked: Bool) -> Color {
+        guard tracked else { return AppColor.muted }
+        return summary.hasDeficit ? AppColor.ink : .white
     }
 
     private func monthGridDays() -> [Date?] {
