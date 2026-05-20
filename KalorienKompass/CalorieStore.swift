@@ -115,6 +115,27 @@ final class CalorieStore: ObservableObject {
         return min(Double(todaysCalories) / Double(adjustedTargetCalories), 1.0)
     }
 
+    var foodTrackingStreak: Int {
+        let trackedDays = Set(entries.map { calendar.startOfDay(for: $0.date) })
+        guard !trackedDays.isEmpty else { return 0 }
+
+        var streak = 0
+        var day = calendar.startOfDay(for: .now)
+
+        if !trackedDays.contains(day),
+           let yesterday = calendar.date(byAdding: .day, value: -1, to: day) {
+            day = yesterday
+        }
+
+        while trackedDays.contains(day) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previousDay
+        }
+
+        return streak
+    }
+
     func daySummary(for date: Date) -> DayCalorieSummary {
         let dayStart = calendar.startOfDay(for: date)
         let consumedCalories = entries

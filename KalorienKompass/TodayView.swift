@@ -145,6 +145,21 @@ struct TodayView: View {
                 StatTile(title: "Aktivität", value: "+\(store.todaysActivityCalories) kcal", systemImage: "figure.run", color: AppColor.peach)
             }
 
+            HStack(spacing: 8) {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(AppColor.peach)
+                Text("Streak: \(store.foodTrackingStreak) Tage")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColor.ink)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.thinMaterial, in: Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+            }
+
             if store.todaysActivityCalories > 0 {
                 Text("Basisziel \(store.profile.targetCalories) kcal + Tracking \(store.todaysActivityCalories) kcal")
                     .font(.caption)

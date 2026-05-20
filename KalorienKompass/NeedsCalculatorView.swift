@@ -1,7 +1,15 @@
 import SwiftUI
 
 struct NeedsCalculatorView: View {
+    private enum FocusedField: Hashable {
+        case weight
+        case targetWeight
+    }
+
     @EnvironmentObject private var store: CalorieStore
+    @State private var weightInput = ""
+    @State private var targetWeightInput = ""
+    @FocusState private var focusedField: FocusedField?
 
     var body: some View {
         NavigationStack {
@@ -16,11 +24,57 @@ struct NeedsCalculatorView: View {
                     }
                     .padding(18)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Bedarf")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AppearanceMenu()
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                HStack {
+                    Spacer()
+                    Button("Fertig") {
+                        focusedField = nil
+                    }
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.thinMaterial, in: Capsule(style: .continuous))
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(AppColor.glassStroke, lineWidth: 1)
+                    }
+                    .opacity(focusedField == nil ? 0 : 1)
+                    .disabled(focusedField == nil)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 8)
+            }
+            .onAppear {
+                syncWeightInputsFromProfile()
+            }
+            .onChange(of: store.profile.weightKilograms) { _, value in
+                guard focusedField != .weight else { return }
+                let formatted = formattedWeight(value)
+                if weightInput != formatted {
+                    weightInput = formatted
+                }
+            }
+            .onChange(of: store.profile.targetWeightKilograms) { _, value in
+                guard focusedField != .targetWeight else { return }
+                let formatted = formattedWeight(value)
+                if targetWeightInput != formatted {
+                    targetWeightInput = formatted
+                }
+            }
+            .onChange(of: focusedField) { oldValue, newValue in
+                if oldValue == .weight, newValue != .weight {
+                    commitWeightInput(isTarget: false)
+                }
+                if oldValue == .targetWeight, newValue != .targetWeight {
+                    commitWeightInput(isTarget: true)
                 }
             }
         }
@@ -91,6 +145,10 @@ struct NeedsCalculatorView: View {
                     .font(.subheadline.weight(.semibold))
                 Slider(value: $store.profile.weightKilograms, in: 40...180, step: 0.5)
                     .tint(AppColor.leaf)
+                TextField("z. B. 82,5", text: $weightInput)
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .weight)
+                    .glassField()
             }
             .glassField()
 
@@ -99,6 +157,10 @@ struct NeedsCalculatorView: View {
                     .font(.subheadline.weight(.semibold))
                 Slider(value: $store.profile.targetWeightKilograms, in: 40...180, step: 0.5)
                     .tint(AppColor.leaf)
+                TextField("z. B. 75,0", text: $targetWeightInput)
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .targetWeight)
+                    .glassField()
             }
             .glassField()
 
@@ -152,6 +214,39 @@ struct NeedsCalculatorView: View {
         }
         .font(.body)
         .surface()
+    }
+
+    private func syncWeightInputsFromProfile() {
+        weightInput = formattedWeight(store.profile.weightKilograms)
+        targetWeightInput = formattedWeight(store.profile.targetWeightKilograms)
+    }
+
+    private func formattedWeight(_ value: Double) -> String {
+        String(format: "%.1f", value).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private func commitWeightInput(isTarget: Bool) {
+        let text = isTarget ? targetWeightInput : weightInput
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized) else {
+            if isTarget {
+                targetWeightInput = formattedWeight(store.profile.targetWeightKilograms)
+            } else {
+                weightInput = formattedWeight(store.profile.weightKilograms)
+            }
+            return
+        }
+
+        let clampedValue = min(max(value, 40), 180)
+        let preciseValue = (clampedValue * 10).rounded() / 10
+
+        if isTarget {
+            store.profile.targetWeightKilograms = preciseValue
+            targetWeightInput = formattedWeight(preciseValue)
+        } else {
+            store.profile.weightKilograms = preciseValue
+            weightInput = formattedWeight(preciseValue)
+        }
     }
 }
 
