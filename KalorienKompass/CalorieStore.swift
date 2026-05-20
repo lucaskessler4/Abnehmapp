@@ -10,6 +10,10 @@ final class CalorieStore: ObservableObject {
         didSet { saveSavedMeals() }
     }
 
+    @Published var notes: [DailyNote] = [] {
+        didSet { saveNotes() }
+    }
+
     @Published var profile = UserProfile() {
         didSet { saveProfile() }
     }
@@ -20,6 +24,7 @@ final class CalorieStore: ObservableObject {
 
     private let entriesKey = "calorieEntries"
     private let savedMealsKey = "savedMeals"
+    private let notesKey = "dailyNotes"
     private let profileKey = "userProfile"
     private let appearanceModeKey = "appearanceMode"
     private let calendar = Calendar.current
@@ -30,6 +35,12 @@ final class CalorieStore: ObservableObject {
 
     var todaysEntries: [FoodEntry] {
         entries
+            .filter { calendar.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var todaysNotes: [DailyNote] {
+        notes
             .filter { calendar.isDateInToday($0.date) }
             .sorted { $0.date > $1.date }
     }
@@ -83,6 +94,24 @@ final class CalorieStore: ObservableObject {
         savedMeals.insert(meal, at: 0)
     }
 
+    func addNote(text: String) {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+
+        notes.insert(
+            DailyNote(text: trimmedText, date: .now),
+            at: 0
+        )
+    }
+
+    func updateNote(_ note: DailyNote, text: String) {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty,
+              let index = notes.firstIndex(where: { $0.id == note.id }) else { return }
+
+        notes[index].text = trimmedText
+    }
+
     func deleteEntries(at offsets: IndexSet) {
         let ids = offsets.map { todaysEntries[$0].id }
         entries.removeAll { ids.contains($0.id) }
@@ -96,6 +125,10 @@ final class CalorieStore: ObservableObject {
         savedMeals.removeAll { $0.id == meal.id }
     }
 
+    func deleteNote(_ note: DailyNote) {
+        notes.removeAll { $0.id == note.id }
+    }
+
     private func load() {
         let decoder = JSONDecoder()
 
@@ -107,6 +140,11 @@ final class CalorieStore: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: savedMealsKey),
            let decodedMeals = try? decoder.decode([SavedMeal].self, from: data) {
             savedMeals = decodedMeals
+        }
+
+        if let data = UserDefaults.standard.data(forKey: notesKey),
+           let decodedNotes = try? decoder.decode([DailyNote].self, from: data) {
+            notes = decodedNotes
         }
 
         if let data = UserDefaults.standard.data(forKey: profileKey),
@@ -129,6 +167,12 @@ final class CalorieStore: ObservableObject {
     private func saveSavedMeals() {
         if let data = try? JSONEncoder().encode(savedMeals) {
             UserDefaults.standard.set(data, forKey: savedMealsKey)
+        }
+    }
+
+    private func saveNotes() {
+        if let data = try? JSONEncoder().encode(notes) {
+            UserDefaults.standard.set(data, forKey: notesKey)
         }
     }
 
@@ -162,6 +206,10 @@ extension CalorieStore {
         store.savedMeals = [
             SavedMeal(name: "Skyr mit Beeren", calories: 310, protein: 32),
             SavedMeal(name: "Hähnchen-Bowl", calories: 640, protein: 48)
+        ]
+        store.notes = [
+            DailyNote(text: "Heute mehr trinken und abends kurz spazieren gehen.", date: .now),
+            DailyNote(text: "Mittagessen war sättigend, Snack am Nachmittag planen.", date: .now)
         ]
         return store
     }
