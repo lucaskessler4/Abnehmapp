@@ -112,7 +112,7 @@ struct SurfaceModifier: ViewModifier {
             .padding(18)
             .background {
                 RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(AppColor.surface.opacity(colorScheme == .dark ? 0.88 : 0.94))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
@@ -134,7 +134,7 @@ struct SurfaceModifier: ViewModifier {
                     )
                     .blendMode(.screen)
             }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.32 : 0.10), radius: 24, y: 12)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.22 : 0.07), radius: 10, y: 5)
     }
 }
 
@@ -148,7 +148,7 @@ extension View {
             .padding(.vertical, 12)
             .background {
                 RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(AppColor.field)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
@@ -161,7 +161,7 @@ extension View {
             .padding(.vertical, 8)
             .background {
                 Capsule(style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(AppColor.field)
             }
             .overlay {
                 Capsule(style: .continuous)
@@ -239,7 +239,10 @@ struct StatTile: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                .fill(AppColor.surface.opacity(0.92))
+        )
         .overlay {
             RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
                 .strokeBorder(AppColor.glassStroke, lineWidth: 1)
@@ -248,14 +251,18 @@ struct StatTile: View {
 }
 
 struct MealImageThumbnail: View {
-    let imageData: Data?
+    let uiImage: UIImage?
     var size: CGFloat = 54
+
+    init(imageData: Data?, size: CGFloat = 54) {
+        self.uiImage = imageData.flatMap(UIImage.init(data:))
+        self.size = size
+    }
 
     var body: some View {
         Group {
-            if let imageData,
-               let image = UIImage(data: imageData) {
-                Image(uiImage: image)
+            if let uiImage {
+                Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {

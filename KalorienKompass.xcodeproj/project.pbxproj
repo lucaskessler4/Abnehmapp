@@ -293,6 +293,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -320,6 +321,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WAP4T4X3X4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kalorien Kompass";
 				INFOPLIST_KEY_LSApplicationQueriesSchemes = "gcm-ciq";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
