@@ -93,32 +93,51 @@ struct NeedsCalculatorView: View {
 
     private var resultCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("\(store.profile.targetCalories)")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppColor.leaf)
-                Text("kcal")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppColor.muted)
-                Spacer()
-                Image(systemName: "target")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppColor.leaf)
-                    .frame(width: 48, height: 48)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
-                            .strokeBorder(AppColor.glassStroke, lineWidth: 1)
-                    }
-            }
+            Text("Dein Tagesziel")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColor.muted)
 
-            HStack(spacing: 10) {
-                StatTile(title: "Grundumsatz", value: "\(store.profile.basalMetabolicRate) kcal", systemImage: "flame.fill", color: AppColor.peach)
-                StatTile(title: "Erhaltung", value: "\(store.profile.maintenanceCalories) kcal", systemImage: "equal.circle.fill", color: AppColor.sky)
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(store.profile.targetCalories) kcal")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColor.ink)
+                    Text("Empfohlene Kalorien pro Tag")
+                        .font(.caption)
+                        .foregroundStyle(AppColor.muted)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Label("Grundumsatz: \(store.profile.basalMetabolicRate) kcal", systemImage: "flame.fill")
+                    Label("Erhaltung: \(store.profile.maintenanceCalories) kcal", systemImage: "equal.circle.fill")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppColor.leaf)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppColor.leaf.opacity(0.18), AppColor.sky.opacity(0.14)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.tile, style: .continuous)
+                    .strokeBorder(AppColor.glassStroke, lineWidth: 1)
             }
 
             Text("Bis zum Zielgewicht fehlen etwa \(store.profile.remainingKilograms, specifier: "%.1f") kg.")
                 .font(.subheadline)
+                .foregroundStyle(AppColor.muted)
+
+            Text("Erhaltung = Grundumsatz + Alltagsbewegung + Training. Das ist dein Bedarf, um dein aktuelles Gewicht zu halten.")
+                .font(.caption)
                 .foregroundStyle(AppColor.muted)
         }
         .surface()
@@ -143,8 +162,6 @@ struct NeedsCalculatorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Aktuelles Gewicht: \(store.profile.weightKilograms, specifier: "%.1f") kg")
                     .font(.subheadline.weight(.semibold))
-                Slider(value: $store.profile.weightKilograms, in: 40...180, step: 0.5)
-                    .tint(AppColor.leaf)
                 TextField("z. B. 82,5", text: $weightInput)
                     .keyboardType(.decimalPad)
                     .focused($focusedField, equals: .weight)
@@ -155,8 +172,6 @@ struct NeedsCalculatorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Zielgewicht: \(store.profile.targetWeightKilograms, specifier: "%.1f") kg")
                     .font(.subheadline.weight(.semibold))
-                Slider(value: $store.profile.targetWeightKilograms, in: 40...180, step: 0.5)
-                    .tint(AppColor.leaf)
                 TextField("z. B. 75,0", text: $targetWeightInput)
                     .keyboardType(.decimalPad)
                     .focused($focusedField, equals: .targetWeight)
