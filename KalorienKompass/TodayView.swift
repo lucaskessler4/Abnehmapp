@@ -96,7 +96,7 @@ struct TodayView: View {
                     Text("\(store.todaysCalories)")
                         .font(.system(size: 46, weight: .bold, design: .rounded))
                         .foregroundStyle(AppColor.ink)
-                    Text("von \(store.profile.targetCalories) kcal")
+                    Text("von \(store.adjustedTargetCalories) kcal")
                         .font(.subheadline)
                         .foregroundStyle(AppColor.muted)
                 }
@@ -142,7 +142,13 @@ struct TodayView: View {
 
             HStack(spacing: 10) {
                 StatTile(title: "Protein", value: "\(store.todaysProtein) g", systemImage: "bolt.heart.fill", color: AppColor.sky)
-                StatTile(title: "Ziel", value: store.profile.goal.rawValue, systemImage: "flag.checkered", color: AppColor.peach)
+                StatTile(title: "Aktivität", value: "+\(store.todaysActivityCalories) kcal", systemImage: "figure.run", color: AppColor.peach)
+            }
+
+            if store.todaysActivityCalories > 0 {
+                Text("Basisziel \(store.profile.targetCalories) kcal + Tracking \(store.todaysActivityCalories) kcal")
+                    .font(.caption)
+                    .foregroundStyle(AppColor.muted)
             }
         }
         .surface()

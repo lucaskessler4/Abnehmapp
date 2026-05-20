@@ -14,6 +14,14 @@ final class CalorieStore: ObservableObject {
         didSet { saveNotes() }
     }
 
+    @Published var activityEntries: [ActivityCalorieEntry] = [] {
+        didSet { saveActivityEntries() }
+    }
+
+    @Published var connectedActivitySources: [ActivitySource] = [] {
+        didSet { saveConnectedActivitySources() }
+    }
+
     @Published var profile = UserProfile() {
         didSet { saveProfile() }
     }
@@ -25,6 +33,8 @@ final class CalorieStore: ObservableObject {
     private let entriesKey = "calorieEntries"
     private let savedMealsKey = "savedMeals"
     private let notesKey = "dailyNotes"
+    private let activityEntriesKey = "activityCalorieEntries"
+    private let connectedActivitySourcesKey = "connectedActivitySources"
     private let profileKey = "userProfile"
     private let appearanceModeKey = "appearanceMode"
     private let calendar = Calendar.current
@@ -49,17 +59,35 @@ final class CalorieStore: ObservableObject {
         todaysEntries.reduce(0) { $0 + $1.calories }
     }
 
+    var todaysActivityEntries: [ActivityCalorieEntry] {
+        activityEntries
+            .filter { calendar.isDateInToday($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var todaysActivityCalories: Int {
+        todaysActivityEntries.reduce(0) { $0 + $1.calories }
+    }
+
     var todaysProtein: Int {
         todaysEntries.reduce(0) { $0 + $1.protein }
     }
 
+    var adjustedTargetCalories: Int {
+        profile.targetCalories + todaysActivityCalories
+    }
+
+    var hasConnectedActivitySources: Bool {
+        !connectedActivitySources.isEmpty
+    }
+
     var remainingCalories: Int {
-        profile.targetCalories - todaysCalories
+        adjustedTargetCalories - todaysCalories
     }
 
     var calorieProgress: Double {
-        guard profile.targetCalories > 0 else { return 0 }
-        return min(Double(todaysCalories) / Double(profile.targetCalories), 1.0)
+        guard adjustedTargetCalories > 0 else { return 0 }
+        return min(Double(todaysCalories) / Double(adjustedTargetCalories), 1.0)
     }
 
     func addEntry(name: String, calories: Int, protein: Int, imageData: Data? = nil) {
@@ -104,6 +132,78 @@ final class CalorieStore: ObservableObject {
         )
     }
 
+    func addActivity(source: ActivitySource, calories: Int, note: String = "") {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let entry = ActivityCalorieEntry(
+            source: source,
+            calories: max(0, calories),
+            date: .now,
+            note: trimmedNote
+        )
+        activityEntries.append(entry)
+    }
+
+    func replaceTodaysActivity(source: ActivitySource, calories: Int, note: String = "") {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        activityEntries.removeAll {
+            calendar.isDateInToday($0.date) && $0.source == source && $0.replacesSourceForDay
+        }
+
+        guard calories > 0 else { return }
+
+        let entry = ActivityCalorieEntry(
+            source: source,
+            calories: max(0, calories),
+            date: .now,
+            note: trimmedNote,
+            replacesSourceForDay: true
+        )
+        activityEntries.append(entry)
+    }
+
+    func connectActivitySource(_ source: ActivitySource) {
+        guard source != .manual,
+              !connectedActivitySources.contains(source) else { return }
+
+        connectedActivitySources.append(source)
+    }
+
+    func disconnectActivitySource(_ source: ActivitySource) {
+        connectedActivitySources.removeAll { $0 == source }
+        activityEntries.removeAll {
+            calendar.isDateInToday($0.date) && $0.source == source && $0.replacesSourceForDay
+        }
+    }
+
+    func isActivitySourceConnected(_ source: ActivitySource) -> Bool {
+        connectedActivitySources.contains(source)
+    }
+
+    func replaceTodaysTrackedActivities(_ caloriesBySource: [ActivitySource: Int]) {
+        let automaticSources = Set(connectedActivitySources)
+        activityEntries.removeAll {
+            calendar.isDateInToday($0.date)
+                && automaticSources.contains($0.source)
+                && $0.replacesSourceForDay
+        }
+
+        for source in automaticSources {
+            guard source != .manual else { continue }
+            let calories = max(0, caloriesBySource[source] ?? 0)
+            guard calories > 0 else { continue }
+
+            activityEntries.append(
+                ActivityCalorieEntry(
+                    source: source,
+                    calories: calories,
+                    date: .now,
+                    note: source == .garmin ? "Automatisch aus Garmin Connect" : "Automatisch aus Apple Health",
+                    replacesSourceForDay: true
+                )
+            )
+        }
+    }
+
     func updateNote(_ note: DailyNote, text: String) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty,
@@ -129,6 +229,10 @@ final class CalorieStore: ObservableObject {
         notes.removeAll { $0.id == note.id }
     }
 
+    func deleteActivityEntry(_ entry: ActivityCalorieEntry) {
+        activityEntries.removeAll { $0.id == entry.id }
+    }
+
     private func load() {
         let decoder = JSONDecoder()
 
@@ -145,6 +249,16 @@ final class CalorieStore: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: notesKey),
            let decodedNotes = try? decoder.decode([DailyNote].self, from: data) {
             notes = decodedNotes
+        }
+
+        if let data = UserDefaults.standard.data(forKey: activityEntriesKey),
+           let decodedActivityEntries = try? decoder.decode([ActivityCalorieEntry].self, from: data) {
+            activityEntries = decodedActivityEntries
+        }
+
+        if let data = UserDefaults.standard.data(forKey: connectedActivitySourcesKey),
+           let decodedConnectedActivitySources = try? decoder.decode([ActivitySource].self, from: data) {
+            connectedActivitySources = decodedConnectedActivitySources
         }
 
         if let data = UserDefaults.standard.data(forKey: profileKey),
@@ -173,6 +287,18 @@ final class CalorieStore: ObservableObject {
     private func saveNotes() {
         if let data = try? JSONEncoder().encode(notes) {
             UserDefaults.standard.set(data, forKey: notesKey)
+        }
+    }
+
+    private func saveActivityEntries() {
+        if let data = try? JSONEncoder().encode(activityEntries) {
+            UserDefaults.standard.set(data, forKey: activityEntriesKey)
+        }
+    }
+
+    private func saveConnectedActivitySources() {
+        if let data = try? JSONEncoder().encode(connectedActivitySources) {
+            UserDefaults.standard.set(data, forKey: connectedActivitySourcesKey)
         }
     }
 
@@ -211,6 +337,11 @@ extension CalorieStore {
             DailyNote(text: "Heute mehr trinken und abends kurz spazieren gehen.", date: .now),
             DailyNote(text: "Mittagessen war sättigend, Snack am Nachmittag planen.", date: .now)
         ]
+        store.activityEntries = [
+            ActivityCalorieEntry(source: .appleHealth, calories: 280, date: .now, note: "Active Energy", replacesSourceForDay: true),
+            ActivityCalorieEntry(source: .garmin, calories: 180, date: .now, note: "Lauftraining")
+        ]
+        store.connectedActivitySources = [.appleHealth, .garmin]
         return store
     }
 }
