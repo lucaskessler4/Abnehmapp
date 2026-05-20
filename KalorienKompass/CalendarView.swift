@@ -133,7 +133,7 @@ struct CalendarView: View {
 
             HStack(spacing: 10) {
                 StatTile(title: "Gegessen", value: "\(selectedSummary.consumedCalories) kcal", systemImage: "fork.knife", color: AppColor.peach)
-                StatTile(title: "Ziel", value: "\(selectedSummary.targetCalories) kcal", systemImage: "target", color: AppColor.sky)
+                StatTile(title: "Maximum fürs Defizit", value: "\(selectedSummary.targetCalories) kcal", systemImage: "target", color: AppColor.sky)
             }
 
             if !tracked {
