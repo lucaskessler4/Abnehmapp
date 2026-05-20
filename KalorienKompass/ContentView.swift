@@ -20,6 +20,11 @@ struct ContentView: View {
                     Label("Tracking", systemImage: "figure.run")
                 }
 
+            CalendarView()
+                .tabItem {
+                    Label("Kalender", systemImage: "calendar")
+                }
+
             FoodScanView()
                 .tabItem {
                     Label("Scan", systemImage: "camera.viewfinder")

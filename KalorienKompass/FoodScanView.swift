@@ -212,9 +212,24 @@ struct FoodScanView: View {
             name: name,
             calories: result.estimatedCalories,
             protein: result.estimatedProtein,
-            imageData: pickedImage?.jpegData(compressionQuality: 0.72)
+            imageData: compressedImageData(from: pickedImage)
         )
         showSaveHint = true
+    }
+
+    private func compressedImageData(from image: UIImage?) -> Data? {
+        guard let image else { return nil }
+        let maxDimension: CGFloat = 900
+        let longestSide = max(image.size.width, image.size.height)
+        let scale = min(1, maxDimension / longestSide)
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+
+        return resizedImage.jpegData(compressionQuality: 0.72)
     }
 }
 

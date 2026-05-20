@@ -1,13 +1,36 @@
 import Foundation
 
+struct DayCalorieSummary: Identifiable, Equatable {
+    let date: Date
+    let consumedCalories: Int
+    let activityCalories: Int
+    let targetCalories: Int
+
+    var id: Date { date }
+
+    var balance: Int {
+        targetCalories - consumedCalories
+    }
+
+    var hasDeficit: Bool {
+        balance > 0
+    }
+}
+
 @MainActor
 final class CalorieStore: ObservableObject {
     @Published var entries: [FoodEntry] = [] {
-        didSet { saveEntries() }
+        didSet {
+            guard !isApplyingPersistenceSanitization else { return }
+            saveEntries()
+        }
     }
 
     @Published var savedMeals: [SavedMeal] = [] {
-        didSet { saveSavedMeals() }
+        didSet {
+            guard !isApplyingPersistenceSanitization else { return }
+            saveSavedMeals()
+        }
     }
 
     @Published var notes: [DailyNote] = [] {
@@ -38,6 +61,8 @@ final class CalorieStore: ObservableObject {
     private let profileKey = "userProfile"
     private let appearanceModeKey = "appearanceMode"
     private let calendar = Calendar.current
+    private let maxUserDefaultsPayloadBytes = 3_500_000
+    private var isApplyingPersistenceSanitization = false
 
     init() {
         load()
@@ -88,6 +113,38 @@ final class CalorieStore: ObservableObject {
     var calorieProgress: Double {
         guard adjustedTargetCalories > 0 else { return 0 }
         return min(Double(todaysCalories) / Double(adjustedTargetCalories), 1.0)
+    }
+
+    func daySummary(for date: Date) -> DayCalorieSummary {
+        let dayStart = calendar.startOfDay(for: date)
+        let consumedCalories = entries
+            .filter { calendar.isDate($0.date, inSameDayAs: dayStart) }
+            .reduce(0) { $0 + $1.calories }
+        let activityCalories = activityEntries
+            .filter { calendar.isDate($0.date, inSameDayAs: dayStart) }
+            .reduce(0) { $0 + $1.calories }
+        let targetCalories = profile.targetCalories + activityCalories
+
+        return DayCalorieSummary(
+            date: dayStart,
+            consumedCalories: consumedCalories,
+            activityCalories: activityCalories,
+            targetCalories: targetCalories
+        )
+    }
+
+    func daySummariesForMonth(containing monthDate: Date) -> [DayCalorieSummary] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else { return [] }
+        var day = monthInterval.start
+        var summaries: [DayCalorieSummary] = []
+
+        while day < monthInterval.end {
+            summaries.append(daySummary(for: day))
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
+        return summaries
     }
 
     func addEntry(name: String, calories: Int, protein: Int, imageData: Data? = nil) {
@@ -273,14 +330,26 @@ final class CalorieStore: ObservableObject {
     }
 
     private func saveEntries() {
-        if let data = try? JSONEncoder().encode(entries) {
+        let payload = sanitizedEntryPayload()
+        if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: entriesKey)
+            if payload != entries {
+                isApplyingPersistenceSanitization = true
+                entries = payload
+                isApplyingPersistenceSanitization = false
+            }
         }
     }
 
     private func saveSavedMeals() {
-        if let data = try? JSONEncoder().encode(savedMeals) {
+        let payload = sanitizedSavedMealPayload()
+        if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: savedMealsKey)
+            if payload != savedMeals {
+                isApplyingPersistenceSanitization = true
+                savedMeals = payload
+                isApplyingPersistenceSanitization = false
+            }
         }
     }
 
@@ -310,6 +379,32 @@ final class CalorieStore: ObservableObject {
 
     private func saveAppearanceMode() {
         UserDefaults.standard.set(appearanceMode.rawValue, forKey: appearanceModeKey)
+    }
+
+    private func sanitizedEntryPayload() -> [FoodEntry] {
+        guard let encoded = try? JSONEncoder().encode(entries),
+              encoded.count > maxUserDefaultsPayloadBytes else {
+            return entries
+        }
+
+        return entries.map { entry in
+            var sanitized = entry
+            sanitized.imageData = nil
+            return sanitized
+        }
+    }
+
+    private func sanitizedSavedMealPayload() -> [SavedMeal] {
+        guard let encoded = try? JSONEncoder().encode(savedMeals),
+              encoded.count > maxUserDefaultsPayloadBytes else {
+            return savedMeals
+        }
+
+        return savedMeals.map { meal in
+            var sanitized = meal
+            sanitized.imageData = nil
+            return sanitized
+        }
     }
 }
 
