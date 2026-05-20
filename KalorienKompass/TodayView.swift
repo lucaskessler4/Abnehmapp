@@ -1,10 +1,15 @@
+import PhotosUI
 import SwiftUI
+import UIKit
 
 struct TodayView: View {
     @EnvironmentObject private var store: CalorieStore
     @State private var foodName = ""
     @State private var calories = ""
     @State private var protein = ""
+    @State private var shouldSaveMeal = false
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var selectedImageData: Data?
 
     var body: some View {
         NavigationStack {
@@ -16,12 +21,18 @@ struct TodayView: View {
                         header
                         progressCard
                         quickAddCard
+                        savedMealsSection
                         entriesSection
                     }
                     .padding(18)
                 }
             }
             .navigationTitle("Heute")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppearanceMenu()
+                }
+            }
         }
     }
 
@@ -93,6 +104,33 @@ struct TodayView: View {
                     .textFieldStyle(.roundedBorder)
             }
 
+            HStack(spacing: 12) {
+                MealImageThumbnail(imageData: selectedImageData)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label(selectedImageData == nil ? "Bild hinzufügen" : "Bild ändern", systemImage: "photo")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .tint(AppColor.leaf)
+
+                    if selectedImageData != nil {
+                        Button {
+                            selectedPhoto = nil
+                            selectedImageData = nil
+                        } label: {
+                            Label("Bild entfernen", systemImage: "xmark.circle")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(AppColor.muted)
+                    }
+                }
+            }
+
+            Toggle("Mahlzeit für später speichern", isOn: $shouldSaveMeal)
+                .tint(AppColor.leaf)
+
             Button {
                 addFood()
             } label: {
@@ -105,6 +143,79 @@ struct TodayView: View {
             .disabled(Int(calories) == nil)
         }
         .surface()
+        .onChange(of: selectedPhoto) { _, newPhoto in
+            loadSelectedPhoto(newPhoto)
+        }
+    }
+
+    private var savedMealsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Gespeicherte Mahlzeiten")
+                .font(.title3.bold())
+                .foregroundStyle(AppColor.ink)
+
+            if store.savedMeals.isEmpty {
+                Text("Speichere häufige Mahlzeiten, dann kannst du sie später mit einem Tipp wieder eintragen.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColor.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .surface()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(store.savedMeals) { meal in
+                            savedMealCard(meal)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func savedMealCard(_ meal: SavedMeal) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MealImageThumbnail(imageData: meal.imageData, size: 70)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(meal.name)
+                    .font(.headline)
+                    .foregroundStyle(AppColor.ink)
+                    .lineLimit(2)
+                    .frame(height: 42, alignment: .topLeading)
+
+                Text("\(meal.calories) kcal • \(meal.protein) g Protein")
+                    .font(.caption)
+                    .foregroundStyle(AppColor.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    store.addEntry(from: meal)
+                } label: {
+                    Label("Nutzen", systemImage: "plus")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppColor.leaf)
+
+                Button {
+                    store.deleteSavedMeal(meal)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppColor.muted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(meal.name) löschen")
+            }
+        }
+        .padding(14)
+        .frame(width: 190, alignment: .leading)
+        .background(AppColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var entriesSection: some View {
@@ -124,6 +235,8 @@ struct TodayView: View {
                 VStack(spacing: 10) {
                     ForEach(store.todaysEntries) { entry in
                         HStack {
+                            MealImageThumbnail(imageData: entry.imageData)
+
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(entry.name)
                                     .font(.headline)
@@ -150,7 +263,7 @@ struct TodayView: View {
                             .accessibilityLabel("\(entry.name) löschen")
                         }
                         .padding(14)
-                        .background(.white)
+                        .background(AppColor.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
@@ -160,14 +273,57 @@ struct TodayView: View {
 
     private func addFood() {
         guard let calorieValue = Int(calories) else { return }
+        let proteinValue = Int(protein) ?? 0
+
         store.addEntry(
             name: foodName,
             calories: calorieValue,
-            protein: Int(protein) ?? 0
+            protein: proteinValue,
+            imageData: selectedImageData
         )
+
+        if shouldSaveMeal {
+            store.saveMeal(
+                name: foodName,
+                calories: calorieValue,
+                protein: proteinValue,
+                imageData: selectedImageData
+            )
+        }
+
         foodName = ""
         calories = ""
         protein = ""
+        shouldSaveMeal = false
+        selectedPhoto = nil
+        selectedImageData = nil
+    }
+
+    private func loadSelectedPhoto(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                await MainActor.run {
+                    selectedImageData = compressedImageData(from: data)
+                }
+            }
+        }
+    }
+
+    private func compressedImageData(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else { return data }
+        let maxDimension: CGFloat = 900
+        let longestSide = max(image.size.width, image.size.height)
+        let scale = min(1, maxDimension / longestSide)
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+
+        return resizedImage.jpegData(compressionQuality: 0.72)
     }
 }
 

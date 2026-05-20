@@ -18,6 +18,11 @@ struct NeedsCalculatorView: View {
                 }
             }
             .navigationTitle("Bedarf")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppearanceMenu()
+                }
+            }
         }
     }
 
@@ -74,9 +79,39 @@ struct NeedsCalculatorView: View {
                     .tint(AppColor.leaf)
             }
 
-            Picker("Aktivität", selection: $store.profile.activityLevel) {
-                ForEach(ActivityLevel.allCases) { level in
-                    Text(level.rawValue).tag(level)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Aktivität")
+                    .font(.headline)
+                    .foregroundStyle(AppColor.ink)
+
+                Menu {
+                    Picker("Aktivität", selection: $store.profile.activityLevel) {
+                        ForEach(ActivityLevel.allCases) { level in
+                            Text("\(level.rawValue) - \(level.sportDescription)")
+                                .tag(level)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(store.profile.activityLevel.rawValue)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppColor.leaf)
+                            Text(store.profile.activityLevel.sportDescription)
+                                .font(.caption)
+                                .foregroundStyle(AppColor.muted)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppColor.leaf)
+                    }
+                    .padding(12)
+                    .background(AppColor.field)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 

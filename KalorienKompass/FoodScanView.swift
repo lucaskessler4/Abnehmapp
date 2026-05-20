@@ -40,6 +40,11 @@ struct FoodScanView: View {
                 .padding(18)
             }
             .navigationTitle("Scan")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppearanceMenu()
+                }
+            }
         }
     }
 }

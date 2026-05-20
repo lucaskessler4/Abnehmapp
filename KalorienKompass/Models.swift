@@ -6,6 +6,23 @@ struct FoodEntry: Identifiable, Codable, Equatable {
     var calories: Int
     var protein: Int
     var date: Date
+    var imageData: Data? = nil
+}
+
+struct SavedMeal: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var name: String
+    var calories: Int
+    var protein: Int
+    var imageData: Data? = nil
+}
+
+enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
+    case system = "System"
+    case light = "Hell"
+    case dark = "Dunkel"
+
+    var id: String { rawValue }
 }
 
 enum Sex: String, Codable, CaseIterable, Identifiable {
@@ -29,6 +46,19 @@ enum ActivityLevel: String, Codable, CaseIterable, Identifiable {
         case .light: return 1.375
         case .moderate: return 1.55
         case .high: return 1.725
+        }
+    }
+
+    var sportDescription: String {
+        switch self {
+        case .low:
+            return "Kaum Sport, viel Sitzen, wenige Schritte im Alltag."
+        case .light:
+            return "Leichter Alltag oder 1-3 lockere Sporteinheiten pro Woche."
+        case .moderate:
+            return "Regelmäßig aktiv, etwa 3-5 Sporteinheiten pro Woche."
+        case .high:
+            return "Viel Training, körperlicher Job oder fast täglich Sport."
         }
     }
 }
