@@ -1,15 +1,22 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NeedsCalculatorView: View {
     private enum FocusedField: Hashable {
         case weight
         case targetWeight
+        case calorieDeficit
     }
 
     @EnvironmentObject private var store: CalorieStore
     @Environment(\.bottomDockClearance) private var bottomDockClearance
     @State private var weightInput = ""
     @State private var targetWeightInput = ""
+    @State private var calorieDeficitInput = ""
+    @State private var sectionOrder: [NeedsSection] = NeedsSection.allCases
+    @State private var draggedSection: NeedsSection?
+    @State private var hasLoadedSectionOrder = false
+    @AppStorage("needsSectionOrder") private var sectionOrderStorage = ""
     @FocusState private var focusedField: FocusedField?
 
     var body: some View {
@@ -20,8 +27,21 @@ struct NeedsCalculatorView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         headline
-                        resultCard
-                        profileForm
+                        ForEach(sectionOrder) { section in
+                            needsSection(section)
+                                .onDrag {
+                                    draggedSection = section
+                                    return NSItemProvider(object: NSString(string: section.rawValue))
+                                }
+                                .onDrop(
+                                    of: [UTType.text],
+                                    delegate: NeedsSectionDropDelegate(
+                                        target: section,
+                                        sections: $sectionOrder,
+                                        draggedSection: $draggedSection
+                                    )
+                                )
+                        }
                     }
                     .padding(18)
                     .padding(.bottom, bottomDockClearance)
@@ -32,6 +52,14 @@ struct NeedsCalculatorView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AppearanceMenu()
+                }
+
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Fertig") {
+                        focusedField = nil
+                    }
+                    .font(.body.weight(.semibold))
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -55,7 +83,13 @@ struct NeedsCalculatorView: View {
                 .padding(.bottom, 8)
             }
             .onAppear {
-                syncWeightInputsFromProfile()
+                syncInputsFromProfile()
+                guard !hasLoadedSectionOrder else { return }
+                sectionOrder = NeedsSection.order(from: sectionOrderStorage)
+                hasLoadedSectionOrder = true
+            }
+            .onChange(of: sectionOrder) { _, newValue in
+                sectionOrderStorage = NeedsSection.storageString(for: newValue)
             }
             .onChange(of: store.profile.weightKilograms) { _, value in
                 guard focusedField != .weight else { return }
@@ -71,12 +105,19 @@ struct NeedsCalculatorView: View {
                     targetWeightInput = formatted
                 }
             }
+            .onChange(of: store.profile.desiredCalorieDeficit) { _, value in
+                guard focusedField != .calorieDeficit else { return }
+                calorieDeficitInput = "\(value)"
+            }
             .onChange(of: focusedField) { oldValue, newValue in
                 if oldValue == .weight, newValue != .weight {
                     commitWeightInput(isTarget: false)
                 }
                 if oldValue == .targetWeight, newValue != .targetWeight {
                     commitWeightInput(isTarget: true)
+                }
+                if oldValue == .calorieDeficit, newValue != .calorieDeficit {
+                    commitCalorieDeficitInput()
                 }
             }
         }
@@ -87,9 +128,24 @@ struct NeedsCalculatorView: View {
             Text("Dein Tagesziel")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(AppColor.ink)
-            Text("Berechnet mit der Mifflin-St Jeor-Formel plus Aktivität und Zieltempo.")
+            Text("Lege dein Tagesziel über dein gewünschtes Kaloriendefizit fest.")
                 .font(.subheadline)
                 .foregroundStyle(AppColor.muted)
+        }
+    }
+
+    private func needsSection(_ section: NeedsSection) -> some View {
+        Group {
+            switch section {
+            case .result:
+                resultCard
+            case .basics:
+                basicsCard
+            case .weights:
+                weightsCard
+            case .calorieDeficit:
+                calorieDeficitCard
+            }
         }
     }
 
@@ -104,19 +160,12 @@ struct NeedsCalculatorView: View {
                     Text("\(store.profile.targetCalories) kcal")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundStyle(AppColor.ink)
-                    Text("Empfohlene Kalorien pro Tag")
+                    Text("Kalorien pro Tag")
                         .font(.caption)
                         .foregroundStyle(AppColor.muted)
                 }
 
                 Spacer()
-
-                VStack(alignment: .trailing, spacing: 8) {
-                    Label("Grundumsatz: \(store.profile.basalMetabolicRate) kcal", systemImage: "flame.fill")
-                    Label("Erhaltung: \(store.profile.maintenanceCalories) kcal", systemImage: "equal.circle.fill")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppColor.leaf)
             }
             .padding(14)
             .background(
@@ -134,18 +183,32 @@ struct NeedsCalculatorView: View {
                     .strokeBorder(AppColor.glassStroke, lineWidth: 1)
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Grundumsatz: \(store.profile.basalMetabolicRate) kcal", systemImage: "flame.fill")
+                Label("Kaloriendefizit: \(store.profile.desiredCalorieDeficit) kcal", systemImage: "minus.circle.fill")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppColor.leaf)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Text("Bis zum Zielgewicht fehlen etwa \(store.profile.remainingKilograms, specifier: "%.1f") kg.")
                 .font(.subheadline)
                 .foregroundStyle(AppColor.muted)
 
-            Text("Erhaltung = Grundumsatz + Alltagsbewegung + Training. Das ist dein Bedarf, um dein aktuelles Gewicht zu halten.")
+            if let estimateText = targetDurationEstimateText {
+                Text(estimateText)
+                    .font(.subheadline)
+                    .foregroundStyle(AppColor.muted)
+            }
+
+            Text("Tagesziel = Grundumsatz minus Kaloriendefizit.")
                 .font(.caption)
                 .foregroundStyle(AppColor.muted)
         }
         .surface()
     }
 
-    private var profileForm: some View {
+    private var basicsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Picker("Geschlecht", selection: $store.profile.sex) {
                 ForEach(Sex.allCases) { sex in
@@ -160,7 +223,13 @@ struct NeedsCalculatorView: View {
                 Stepper("Größe: \(store.profile.heightCentimeters) cm", value: $store.profile.heightCentimeters, in: 130...220)
             }
             .glassField()
+        }
+        .font(.body)
+        .surface()
+    }
 
+    private var weightsCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Aktuelles Gewicht: \(store.profile.weightKilograms, specifier: "%.1f") kg")
                     .font(.subheadline.weight(.semibold))
@@ -180,62 +249,46 @@ struct NeedsCalculatorView: View {
                     .glassField()
             }
             .glassField()
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Aktivität")
-                    .font(.headline)
-                    .foregroundStyle(AppColor.ink)
-
-                Menu {
-                    Picker("Aktivität", selection: $store.profile.activityLevel) {
-                        ForEach(ActivityLevel.allCases) { level in
-                            Text("\(level.rawValue) - \(level.sportDescription)")
-                                .tag(level)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(store.profile.activityLevel.rawValue)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(AppColor.leaf)
-                            Text(store.profile.activityLevel.sportDescription)
-                                .font(.caption)
-                                .foregroundStyle(AppColor.muted)
-                                .multilineTextAlignment(.leading)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppColor.leaf)
-                    }
-                    .padding(12)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
-                            .strokeBorder(AppColor.glassStroke, lineWidth: 1)
-                    }
-                }
-            }
-
-            Picker("Ziel", selection: $store.profile.goal) {
-                ForEach(Goal.allCases) { goal in
-                    Text(goal.rawValue).tag(goal)
-                }
-            }
-            .pickerStyle(.menu)
-            .glassField()
         }
         .font(.body)
         .surface()
     }
 
-    private func syncWeightInputsFromProfile() {
+    private var calorieDeficitCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Kaloriendefizit")
+                .font(.headline)
+                .foregroundStyle(AppColor.ink)
+
+            TextField("z. B. 500", text: $calorieDeficitInput)
+                .keyboardType(.numberPad)
+                .focused($focusedField, equals: .calorieDeficit)
+                .glassField()
+
+            Button {
+                commitCalorieDeficitInput()
+                focusedField = nil
+            } label: {
+                Label("Speichern", systemImage: "checkmark")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AppColor.leaf)
+            .controlSize(.large)
+
+            Text("Gib ein, um wie viele kcal du täglich unter deinem Grundumsatz liegen möchtest.")
+                .font(.caption)
+                .foregroundStyle(AppColor.muted)
+        }
+        .font(.body)
+        .surface()
+    }
+
+    private func syncInputsFromProfile() {
         weightInput = formattedWeight(store.profile.weightKilograms)
         targetWeightInput = formattedWeight(store.profile.targetWeightKilograms)
+        calorieDeficitInput = "\(store.profile.desiredCalorieDeficit)"
     }
 
     private func formattedWeight(_ value: Double) -> String {
@@ -264,6 +317,97 @@ struct NeedsCalculatorView: View {
             store.profile.weightKilograms = preciseValue
             weightInput = formattedWeight(preciseValue)
         }
+    }
+
+    private func commitCalorieDeficitInput() {
+        let normalized = calorieDeficitInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(normalized) else {
+            calorieDeficitInput = "\(store.profile.desiredCalorieDeficit)"
+            return
+        }
+
+        let clampedValue = min(max(value, 0), 2000)
+        store.profile.desiredCalorieDeficit = clampedValue
+        calorieDeficitInput = "\(clampedValue)"
+    }
+
+    private var targetDurationEstimateText: String? {
+        let remaining = store.profile.remainingKilograms
+        guard remaining > 0 else {
+            return "Zielgewicht erreicht."
+        }
+
+        let dailyDeficit = store.profile.desiredCalorieDeficit
+        guard dailyDeficit > 0 else {
+            return "Mit einem Defizit von 0 kcal gibt es keine Abnahme-Zeitschätzung."
+        }
+
+        let weeklyDeficit = Double(dailyDeficit * 7)
+        let weeks = (remaining * 7_700) / weeklyDeficit
+        let roundedWeeks = max(1, Int(weeks.rounded()))
+        let months = Double(roundedWeeks) / 4.345
+        let formattedMonths = String(format: "%.1f", months)
+
+        if months >= 2 {
+            return "Bis zum Ziel dauert es voraussichtlich etwa \(roundedWeeks) Wochen (\(formattedMonths) Monate)."
+        }
+
+        return "Bis zum Ziel dauert es voraussichtlich etwa \(roundedWeeks) Wochen."
+    }
+}
+
+private enum NeedsSection: String, CaseIterable, Identifiable {
+    case result
+    case basics
+    case weights
+    case calorieDeficit
+
+    var id: String { rawValue }
+
+    static func order(from storage: String) -> [NeedsSection] {
+        let storedValues = storage
+            .split(separator: ",")
+            .compactMap { NeedsSection(rawValue: String($0)) }
+
+        guard !storedValues.isEmpty else {
+            return allCases
+        }
+
+        let missing = allCases.filter { !storedValues.contains($0) }
+        return storedValues + missing
+    }
+
+    static func storageString(for sections: [NeedsSection]) -> String {
+        sections.map(\.rawValue).joined(separator: ",")
+    }
+}
+
+private struct NeedsSectionDropDelegate: DropDelegate {
+    let target: NeedsSection
+    @Binding var sections: [NeedsSection]
+    @Binding var draggedSection: NeedsSection?
+
+    func dropEntered(info: DropInfo) {
+        guard
+            let draggedSection,
+            draggedSection != target,
+            let fromIndex = sections.firstIndex(of: draggedSection),
+            let toIndex = sections.firstIndex(of: target)
+        else {
+            return
+        }
+
+        withAnimation(.snappy) {
+            sections.move(
+                fromOffsets: IndexSet(integer: fromIndex),
+                toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
+            )
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedSection = nil
+        return true
     }
 }
 

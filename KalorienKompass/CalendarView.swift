@@ -36,8 +36,8 @@ struct CalendarView: View {
 
     private var averageDailyDeficit: Int? {
         guard !trackedHistorySummaries.isEmpty else { return nil }
-        let totalBalance = trackedHistorySummaries.reduce(0) { $0 + $1.balance }
-        let average = Double(totalBalance) / Double(trackedHistorySummaries.count)
+        let totalDeficit = trackedHistorySummaries.reduce(0) { $0 + $1.actualDeficit }
+        let average = Double(totalDeficit) / Double(trackedHistorySummaries.count)
         return Int(average.rounded())
     }
 
@@ -210,7 +210,7 @@ struct CalendarView: View {
 
             HStack(spacing: 10) {
                 StatTile(title: "Gegessen", value: "\(selectedSummary.consumedCalories) kcal", systemImage: "fork.knife", color: AppColor.peach)
-                StatTile(title: "Maximum fürs Defizit", value: "\(selectedSummary.targetCalories) kcal", systemImage: "target", color: AppColor.sky)
+                StatTile(title: "Maximum", value: "\(selectedSummary.maxCaloriesWithoutDeficit) kcal", systemImage: "target", color: AppColor.sky)
             }
 
             if !tracked {
@@ -218,16 +218,16 @@ struct CalendarView: View {
                     .font(.headline)
                     .foregroundStyle(AppColor.muted)
             } else if selectedSummary.hasDeficit {
-                Label("Defizit: \(selectedSummary.balance) kcal", systemImage: "checkmark.circle.fill")
+                Label("Defizit gesamt: \(selectedSummary.actualDeficit) kcal", systemImage: "checkmark.circle.fill")
                     .font(.headline)
                     .foregroundStyle(AppColor.leaf)
             } else {
-                Label("Kein Defizit: \(abs(selectedSummary.balance)) kcal drüber", systemImage: "xmark.circle.fill")
+                Label("Kein Defizit: \(abs(selectedSummary.actualDeficit)) kcal fehlen", systemImage: "xmark.circle.fill")
                     .font(.headline)
                     .foregroundStyle(.red)
             }
 
-            Text("Aktivität an diesem Tag: +\(selectedSummary.activityCalories) kcal")
+            Text("Rechnung: Grundumsatz \(store.profile.maintenanceCalories) + Aktivität \(selectedSummary.activityCalories) = Maximum \(selectedSummary.maxCaloriesWithoutDeficit) kcal. Mit Soll-Defizit \(selectedSummary.plannedDeficit) ergibt sich Ziel \(selectedSummary.targetCalories) kcal.")
                 .font(.caption)
                 .foregroundStyle(AppColor.muted)
         }
@@ -246,7 +246,7 @@ struct CalendarView: View {
                 Text(date.formatted(.dateTime.day()))
                     .font(.subheadline.weight(.bold))
                 if tracked {
-                    Text(summary.hasDeficit ? "-\(summary.balance)" : "+\(abs(summary.balance))")
+                    Text(summary.hasDeficit ? "-\(summary.actualDeficit)" : "+\(abs(summary.actualDeficit))")
                         .font(.caption2.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

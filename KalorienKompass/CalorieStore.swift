@@ -5,6 +5,8 @@ struct DayCalorieSummary: Identifiable, Equatable {
     let consumedCalories: Int
     let activityCalories: Int
     let targetCalories: Int
+    let maxCaloriesWithoutDeficit: Int
+    let plannedDeficit: Int
 
     var id: Date { date }
 
@@ -12,8 +14,16 @@ struct DayCalorieSummary: Identifiable, Equatable {
         targetCalories - consumedCalories
     }
 
+    var actualDeficit: Int {
+        maxCaloriesWithoutDeficit - consumedCalories
+    }
+
     var hasDeficit: Bool {
-        balance > 0
+        actualDeficit > 0
+    }
+
+    var reachedPlannedDeficit: Bool {
+        balance >= 0
     }
 }
 
@@ -144,13 +154,16 @@ final class CalorieStore: ObservableObject {
         let activityCalories = activityEntries
             .filter { calendar.isDate($0.date, inSameDayAs: dayStart) }
             .reduce(0) { $0 + $1.calories }
-        let targetCalories = profile.targetCalories + activityCalories
+        let maxCaloriesWithoutDeficit = profile.maintenanceCalories + activityCalories
+        let targetCalories = max(1200, maxCaloriesWithoutDeficit - profile.desiredCalorieDeficit)
 
         return DayCalorieSummary(
             date: dayStart,
             consumedCalories: consumedCalories,
             activityCalories: activityCalories,
-            targetCalories: targetCalories
+            targetCalories: targetCalories,
+            maxCaloriesWithoutDeficit: maxCaloriesWithoutDeficit,
+            plannedDeficit: profile.desiredCalorieDeficit
         )
     }
 
@@ -463,7 +476,7 @@ extension CalorieStore {
             heightCentimeters: 182,
             weightKilograms: 88,
             targetWeightKilograms: 80,
-            activityLevel: .light,
+            desiredCalorieDeficit: 500,
             goal: .loseSteady
         )
         store.entries = [

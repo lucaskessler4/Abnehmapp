@@ -124,7 +124,7 @@ struct UserProfile: Codable, Equatable {
     var heightCentimeters: Int = 180
     var weightKilograms: Double = 85
     var targetWeightKilograms: Double = 78
-    var activityLevel: ActivityLevel = .light
+    var desiredCalorieDeficit: Int = 500
     var goal: Goal = .loseSteady
 
     var basalMetabolicRate: Int {
@@ -134,11 +134,11 @@ struct UserProfile: Codable, Equatable {
     }
 
     var maintenanceCalories: Int {
-        Int((Double(basalMetabolicRate) * activityLevel.factor).rounded())
+        basalMetabolicRate
     }
 
     var targetCalories: Int {
-        max(1200, maintenanceCalories + goal.dailyAdjustment)
+        max(1200, maintenanceCalories - desiredCalorieDeficit)
     }
 
     var remainingKilograms: Double {
