@@ -1,6 +1,7 @@
 import PhotosUI
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct TodayView: View {
     private enum FocusedField: Hashable {
@@ -19,6 +20,10 @@ struct TodayView: View {
     @State private var editingNote: DailyNote?
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var selectedImageData: Data?
+    @State private var sectionOrder: [DashboardSection] = DashboardSection.allCases
+    @State private var draggedSection: DashboardSection?
+    @State private var hasLoadedSectionOrder = false
+    @AppStorage("todaySectionOrder") private var sectionOrderStorage = ""
     @FocusState private var focusedField: FocusedField?
 
     var body: some View {
@@ -29,11 +34,21 @@ struct TodayView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         header
-                        progressCard
-                        quickAddCard
-                        notesSection
-                        savedMealsSection
-                        entriesSection
+                        ForEach(sectionOrder) { section in
+                            dashboardSection(section)
+                                .onDrag {
+                                    draggedSection = section
+                                    return NSItemProvider(object: NSString(string: section.rawValue))
+                                }
+                                .onDrop(
+                                    of: [UTType.text],
+                                    delegate: DashboardSectionDropDelegate(
+                                        target: section,
+                                        sections: $sectionOrder,
+                                        draggedSection: $draggedSection
+                                    )
+                                )
+                        }
                     }
                     .padding(18)
                 }
@@ -41,6 +56,14 @@ struct TodayView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     focusedField = nil
+                }
+                .onAppear {
+                    guard !hasLoadedSectionOrder else { return }
+                    sectionOrder = DashboardSection.order(from: sectionOrderStorage)
+                    hasLoadedSectionOrder = true
+                }
+                .onChange(of: sectionOrder) { _, newValue in
+                    sectionOrderStorage = DashboardSection.storageString(for: newValue)
                 }
             }
             .navigationTitle("Heute")
@@ -62,6 +85,23 @@ struct TodayView: View {
                     }
                     .font(.body.weight(.semibold))
                 }
+            }
+        }
+    }
+
+    private func dashboardSection(_ section: DashboardSection) -> some View {
+        Group {
+            switch section {
+            case .progress:
+                progressCard
+            case .quickAdd:
+                quickAddCard
+            case .notes:
+                notesSection
+            case .savedMeals:
+                savedMealsSection
+            case .entries:
+                entriesSection
             }
         }
     }
@@ -524,6 +564,62 @@ struct TodayView: View {
         }
 
         return resizedImage.jpegData(compressionQuality: 0.72)
+    }
+}
+
+private enum DashboardSection: String, CaseIterable, Identifiable {
+    case progress
+    case quickAdd
+    case notes
+    case savedMeals
+    case entries
+
+    var id: String { rawValue }
+
+    static func order(from storage: String) -> [DashboardSection] {
+        let storedValues = storage
+            .split(separator: ",")
+            .compactMap { DashboardSection(rawValue: String($0)) }
+
+        guard !storedValues.isEmpty else {
+            return allCases
+        }
+
+        let missing = allCases.filter { !storedValues.contains($0) }
+        return storedValues + missing
+    }
+
+    static func storageString(for sections: [DashboardSection]) -> String {
+        sections.map(\.rawValue).joined(separator: ",")
+    }
+}
+
+private struct DashboardSectionDropDelegate: DropDelegate {
+    let target: DashboardSection
+    @Binding var sections: [DashboardSection]
+    @Binding var draggedSection: DashboardSection?
+
+    func dropEntered(info: DropInfo) {
+        guard
+            let draggedSection,
+            draggedSection != target,
+            let fromIndex = sections.firstIndex(of: draggedSection),
+            let toIndex = sections.firstIndex(of: target)
+        else {
+            return
+        }
+
+        withAnimation(.snappy) {
+            sections.move(
+                fromOffsets: IndexSet(integer: fromIndex),
+                toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex
+            )
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedSection = nil
+        return true
     }
 }
 
