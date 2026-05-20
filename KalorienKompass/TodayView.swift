@@ -8,6 +8,7 @@ struct TodayView: View {
         case foodName
         case calories
         case protein
+        case portion
         case note
     }
 
@@ -15,6 +16,7 @@ struct TodayView: View {
     @State private var foodName = ""
     @State private var calories = ""
     @State private var protein = ""
+    @State private var portionSize = "1.0"
     @State private var shouldSaveMeal = false
     @State private var noteText = ""
     @State private var editingNote: DailyNote?
@@ -236,6 +238,21 @@ struct TodayView: View {
                     .glassField()
             }
 
+            TextField("Portion (z. B. 1.0, 0.5, 1.5)", text: $portionSize)
+                .keyboardType(.decimalPad)
+                .focused($focusedField, equals: .portion)
+                .glassField()
+
+            if let adjustedCalories, isValidPortion {
+                Text("Portionsbereinigt: \(adjustedCalories) kcal • \(adjustedProtein) g Protein")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppColor.muted)
+            } else {
+                Text("Bitte eine Portionsgröße größer als 0 eingeben.")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+            }
+
             HStack(spacing: 12) {
                 MealImageThumbnail(imageData: selectedImageData)
 
@@ -272,7 +289,7 @@ struct TodayView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(AppColor.leaf)
-            .disabled(Int(calories) == nil)
+            .disabled(adjustedCalories == nil || !isValidPortion)
             .controlSize(.large)
         }
         .surface()
@@ -505,8 +522,13 @@ struct TodayView: View {
     }
 
     private func addFood() {
-        guard let calorieValue = Int(calories) else { return }
-        let proteinValue = Int(protein) ?? 0
+        guard
+            let calorieValue = adjustedCalories,
+            calorieValue >= 0
+        else {
+            return
+        }
+        let proteinValue = adjustedProtein
         focusedField = nil
 
         store.addEntry(
@@ -528,9 +550,34 @@ struct TodayView: View {
         foodName = ""
         calories = ""
         protein = ""
+        portionSize = "1.0"
         shouldSaveMeal = false
         selectedPhoto = nil
         selectedImageData = nil
+    }
+
+    private var adjustedCalories: Int? {
+        guard let baseCalories = Int(calories) else { return nil }
+        let portion = portionValue
+        return max(0, Int((Double(baseCalories) * portion).rounded()))
+    }
+
+    private var adjustedProtein: Int {
+        let baseProtein = Int(protein) ?? 0
+        let portion = portionValue
+        return max(0, Int((Double(baseProtein) * portion).rounded()))
+    }
+
+    private var isValidPortion: Bool {
+        portionValue > 0
+    }
+
+    private var portionValue: Double {
+        let normalized = portionSize
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+
+        return Double(normalized) ?? -1
     }
 
     private func addNote() {

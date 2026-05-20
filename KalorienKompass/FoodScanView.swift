@@ -22,6 +22,7 @@ struct FoodScanView: View {
     @State private var hasSavedCurrentResult = false
     @State private var customName = ""
     @State private var lastAppliedDescription = ""
+    @State private var portionSize = "1.0"
 
     var body: some View {
         NavigationStack {
@@ -198,21 +199,37 @@ struct FoodScanView: View {
 
                 StatTile(
                     title: "Geschätzt",
-                    value: "\(scanResult.estimatedCalories) kcal",
+                    value: "\(adjustedCalories(for: scanResult)) kcal",
                     systemImage: "flame.fill",
                     color: AppColor.peach
                 )
 
                 StatTile(
                     title: "Protein",
-                    value: "\(scanResult.estimatedProtein) g",
+                    value: "\(adjustedProtein(for: scanResult)) g",
                     systemImage: "bolt.heart.fill",
                     color: AppColor.sky
                 )
 
+                TextField("Portion (z. B. 1.0, 0.5, 1.5)", text: $portionSize)
+                    .keyboardType(.decimalPad)
+                    .glassField()
+
+                if !isValidPortion {
+                    Text("Bitte eine Portionsgröße größer als 0 eingeben.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+
                 Text("KI-Konfidenz: \(Int(scanResult.confidence * 100))%")
                     .font(.caption)
                     .foregroundStyle(AppColor.muted)
+
+                if !scanResult.isLikelyFood {
+                    Text("Das sieht nicht nach einem Lebensmittel aus. Füge es bitte manuell hinzu oder versuche den Scan erneut.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
 
                 if hasPendingDescriptionChanges {
                     Text("Änderung noch nicht übernommen. Tippe auf den Button, um Kalorien zu aktualisieren.")
@@ -230,7 +247,7 @@ struct FoodScanView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(AppColor.leaf)
                 .controlSize(.large)
-                .disabled(hasSavedCurrentResult || hasPendingDescriptionChanges)
+                .disabled(hasSavedCurrentResult || hasPendingDescriptionChanges || !isValidPortion || !scanResult.isLikelyFood)
 
                 if showSaveHint {
                     Text("Gespeichert in Heute. Du kannst nicht doppelt speichern, bis du neu scannst oder die Beschreibung neu berechnest.")
@@ -270,6 +287,7 @@ struct FoodScanView: View {
                 customName = result.title
                 lastAppliedDescription = result.title
                 hasSavedCurrentResult = false
+                portionSize = "1.0"
             }
         }
     }
@@ -290,6 +308,7 @@ struct FoodScanView: View {
                     customName = result.title
                     lastAppliedDescription = result.title
                     hasSavedCurrentResult = false
+                    portionSize = "1.0"
                 }
             } catch {
                 await MainActor.run {
@@ -324,6 +343,7 @@ struct FoodScanView: View {
         currentResult.estimatedCalories = refined.estimatedCalories
         currentResult.estimatedProtein = refined.estimatedProtein
         currentResult.confidence = refined.confidence
+        currentResult.isLikelyFood = refined.isLikelyFood
         scanResult = currentResult
         lastAppliedDescription = trimmed
         hasSavedCurrentResult = false
@@ -336,12 +356,31 @@ struct FoodScanView: View {
             : customName
         store.addEntry(
             name: name,
-            calories: result.estimatedCalories,
-            protein: result.estimatedProtein,
+            calories: adjustedCalories(for: result),
+            protein: adjustedProtein(for: result),
             imageData: compressedImageData(from: pickedImage)
         )
         showSaveHint = true
         hasSavedCurrentResult = true
+    }
+
+    private var portionValue: Double {
+        let normalized = portionSize
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        return Double(normalized) ?? -1
+    }
+
+    private var isValidPortion: Bool {
+        portionValue > 0
+    }
+
+    private func adjustedCalories(for result: FoodScanResult) -> Int {
+        max(0, Int((Double(result.estimatedCalories) * max(0, portionValue)).rounded()))
+    }
+
+    private func adjustedProtein(for result: FoodScanResult) -> Int {
+        max(0, Int((Double(result.estimatedProtein) * max(0, portionValue)).rounded()))
     }
 
     private func compressedImageData(from image: UIImage?) -> Data? {
@@ -365,6 +404,7 @@ private struct FoodScanResult {
     var estimatedCalories: Int
     var estimatedProtein: Int
     var confidence: Double
+    var isLikelyFood: Bool
 }
 
 private enum BarcodeNutritionService {
@@ -415,7 +455,8 @@ private enum BarcodeNutritionService {
             title: title,
             estimatedCalories: max(0, Int(calories.rounded())),
             estimatedProtein: max(0, Int((protein ?? 0).rounded())),
-            confidence: 0.99
+            confidence: 0.99,
+            isLikelyFood: true
         )
     }
 
@@ -452,7 +493,8 @@ private enum FoodVisionAnalyzer {
         title: "Mahlzeit",
         estimatedCalories: 420,
         estimatedProtein: 18,
-        confidence: 0.2
+        confidence: 0.2,
+        isLikelyFood: true
     )
 
     private enum Category: Int, CaseIterable {
@@ -576,7 +618,8 @@ private enum FoodVisionAnalyzer {
                 title: typedDescription,
                 estimatedCalories: 420,
                 estimatedProtein: 18,
-                confidence: max(0.15, baseConfidence * 0.85)
+                confidence: max(0.15, baseConfidence * 0.85),
+                isLikelyFood: !looksNonFood(in: typedDescription)
             )
         }
 
@@ -584,7 +627,8 @@ private enum FoodVisionAnalyzer {
             title: typedDescription,
             estimatedCalories: scoring.calories,
             estimatedProtein: scoring.protein,
-            confidence: max(0.2, baseConfidence * min(1.0, 0.75 + Double(scoring.items.count) * 0.05))
+            confidence: max(0.2, baseConfidence * min(1.0, 0.75 + Double(scoring.items.count) * 0.05)),
+            isLikelyFood: true
         )
     }
 
@@ -602,16 +646,23 @@ private enum FoodVisionAnalyzer {
                 title: title,
                 estimatedCalories: scoring.calories,
                 estimatedProtein: scoring.protein,
-                confidence: max(0.2, min(0.98, baseConfidence * (0.8 + Double(scoring.items.count) * 0.04)))
+                confidence: max(0.2, min(0.98, baseConfidence * (0.8 + Double(scoring.items.count) * 0.04))),
+                isLikelyFood: true
             )
         }
 
         if let first = observations.first {
+            let topText = observations
+                .prefix(5)
+                .map(\.identifier)
+                .joined(separator: " ")
+            let likelyFood = !looksNonFood(in: topText)
             return FoodScanResult(
                 title: cleanedLabel(from: first.identifier),
                 estimatedCalories: 420,
                 estimatedProtein: 18,
-                confidence: Double(first.confidence)
+                confidence: Double(first.confidence),
+                isLikelyFood: likelyFood
             )
         }
 
@@ -676,6 +727,18 @@ private enum FoodVisionAnalyzer {
             .first?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .capitalized ?? "Mahlzeit"
+    }
+
+    private static func looksNonFood(in text: String) -> Bool {
+        let normalized = text.lowercased()
+        let nonFoodHints = [
+            "person", "man", "woman", "face", "selfie", "dog", "cat", "bird",
+            "car", "vehicle", "bicycle", "motorcycle", "bus", "train", "truck",
+            "street", "building", "house", "room", "furniture", "sofa", "chair",
+            "laptop", "computer", "keyboard", "phone", "book", "screen", "monitor",
+            "tv", "television", "plant", "flower", "tree", "shoe", "clothing"
+        ]
+        return nonFoodHints.contains { normalized.contains($0) }
     }
 
 }
