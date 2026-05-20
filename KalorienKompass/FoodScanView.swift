@@ -3,6 +3,7 @@ import SwiftUI
 import UIKit
 import Vision
 import ImageIO
+import AVFoundation
 
 struct FoodScanView: View {
     @EnvironmentObject private var store: CalorieStore
@@ -10,7 +11,10 @@ struct FoodScanView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var pickedImage: UIImage?
     @State private var showCamera = false
+    @State private var showBarcodeScanner = false
     @State private var showCameraUnavailableAlert = false
+    @State private var showBarcodeErrorAlert = false
+    @State private var barcodeErrorMessage = ""
     @State private var isAnalyzing = false
     @State private var scanResult: FoodScanResult?
     @State private var showSaveHint = false
@@ -41,10 +45,20 @@ struct FoodScanView: View {
             .sheet(isPresented: $showCamera) {
                 CameraPicker(image: $pickedImage)
             }
+            .sheet(isPresented: $showBarcodeScanner) {
+                BarcodeScannerView { barcode in
+                    lookupBarcode(barcode)
+                }
+            }
             .alert("Kamera nicht verfügbar", isPresented: $showCameraUnavailableAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Auf diesem Gerät ist keine Kamera verfügbar. Bitte nutze die Galerie.")
+            }
+            .alert("Barcode konnte nicht geladen werden", isPresented: $showBarcodeErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(barcodeErrorMessage)
             }
             .onChange(of: selectedPhoto) { _, newPhoto in
                 loadSelectedPhoto(newPhoto)
@@ -141,6 +155,21 @@ struct FoodScanView: View {
             .buttonStyle(.bordered)
             .tint(AppColor.leaf)
             .controlSize(.large)
+
+            Button {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    showBarcodeScanner = true
+                } else {
+                    showCameraUnavailableAlert = true
+                }
+            } label: {
+                Label("Barcode scannen", systemImage: "barcode.viewfinder")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(AppColor.leaf)
+            .controlSize(.large)
         }
         .surface()
     }
@@ -172,6 +201,13 @@ struct FoodScanView: View {
                     value: "\(scanResult.estimatedCalories) kcal",
                     systemImage: "flame.fill",
                     color: AppColor.peach
+                )
+
+                StatTile(
+                    title: "Protein",
+                    value: "\(scanResult.estimatedProtein) g",
+                    systemImage: "bolt.heart.fill",
+                    color: AppColor.sky
                 )
 
                 Text("KI-Konfidenz: \(Int(scanResult.confidence * 100))%")
@@ -234,6 +270,33 @@ struct FoodScanView: View {
                 customName = result.title
                 lastAppliedDescription = result.title
                 hasSavedCurrentResult = false
+            }
+        }
+    }
+
+    private func lookupBarcode(_ code: String) {
+        isAnalyzing = true
+        showSaveHint = false
+        scanResult = nil
+        pickedImage = nil
+        showBarcodeScanner = false
+
+        Task {
+            do {
+                let result = try await BarcodeNutritionService.fetchNutrition(for: code)
+                await MainActor.run {
+                    isAnalyzing = false
+                    scanResult = result
+                    customName = result.title
+                    lastAppliedDescription = result.title
+                    hasSavedCurrentResult = false
+                }
+            } catch {
+                await MainActor.run {
+                    isAnalyzing = false
+                    barcodeErrorMessage = error.localizedDescription
+                    showBarcodeErrorAlert = true
+                }
             }
         }
     }
@@ -302,6 +365,86 @@ private struct FoodScanResult {
     var estimatedCalories: Int
     var estimatedProtein: Int
     var confidence: Double
+}
+
+private enum BarcodeNutritionService {
+    private static let session = URLSession.shared
+
+    static func fetchNutrition(for barcode: String) async throws -> FoodScanResult {
+        guard let url = URL(string: "https://world.openfoodfacts.org/api/v2/product/\(barcode).json") else {
+            throw BarcodeNutritionError.invalidBarcode
+        }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            throw BarcodeNutritionError.network
+        }
+
+        guard
+            let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let status = root["status"] as? Int,
+            status == 1,
+            let product = root["product"] as? [String: Any]
+        else {
+            throw BarcodeNutritionError.notFound
+        }
+
+        let title = (product["product_name_de"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? (product["product_name_de"] as? String ?? "Produkt")
+            : ((product["product_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? (product["product_name"] as? String ?? "Produkt")
+                : "Produkt")
+
+        guard let nutriments = product["nutriments"] as? [String: Any] else {
+            throw BarcodeNutritionError.noNutrition
+        }
+
+        let calories = number(from: nutriments["energy-kcal_serving"])
+            ?? number(from: nutriments["energy-kcal"])
+            ?? number(from: nutriments["energy-kcal_100g"])
+
+        let protein = number(from: nutriments["proteins_serving"])
+            ?? number(from: nutriments["proteins"])
+            ?? number(from: nutriments["proteins_100g"])
+
+        guard let calories else {
+            throw BarcodeNutritionError.noNutrition
+        }
+
+        return FoodScanResult(
+            title: title,
+            estimatedCalories: max(0, Int(calories.rounded())),
+            estimatedProtein: max(0, Int((protein ?? 0).rounded())),
+            confidence: 0.99
+        )
+    }
+
+    private static func number(from value: Any?) -> Double? {
+        if let n = value as? Double { return n }
+        if let n = value as? NSNumber { return n.doubleValue }
+        if let s = value as? String { return Double(s.replacingOccurrences(of: ",", with: ".")) }
+        return nil
+    }
+}
+
+private enum BarcodeNutritionError: LocalizedError {
+    case invalidBarcode
+    case network
+    case notFound
+    case noNutrition
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidBarcode:
+            return "Der Barcode ist ungültig."
+        case .network:
+            return "Die Produktdaten konnten nicht geladen werden. Bitte versuche es erneut."
+        case .notFound:
+            return "Für diesen Barcode wurde kein Produkt gefunden."
+        case .noNutrition:
+            return "Für dieses Produkt sind keine Nährwerte verfügbar."
+        }
+    }
 }
 
 private enum FoodVisionAnalyzer {
@@ -588,6 +731,92 @@ private struct CameraPicker: UIViewControllerRepresentable {
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
+        }
+    }
+}
+
+private struct BarcodeScannerView: UIViewControllerRepresentable {
+    let onScanned: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller = UIViewController()
+        let session = AVCaptureSession()
+        context.coordinator.session = session
+
+        guard let device = AVCaptureDevice.default(for: .video),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else {
+            return controller
+        }
+        session.addInput(input)
+
+        let output = AVCaptureMetadataOutput()
+        guard session.canAddOutput(output) else { return controller }
+        session.addOutput(output)
+        output.setMetadataObjectsDelegate(context.coordinator, queue: DispatchQueue.main)
+        output.metadataObjectTypes = [
+            .ean8, .ean13, .upce, .code39, .code93, .code128, .qr
+        ]
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.frame = UIScreen.main.bounds
+        controller.view.layer.addSublayer(previewLayer)
+        context.coordinator.previewLayer = previewLayer
+
+        context.coordinator.startSessionIfNeeded()
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        context.coordinator.previewLayer?.frame = uiViewController.view.bounds
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onScanned: onScanned, dismiss: dismiss.callAsFunction)
+    }
+
+    static func dismantleUIViewController(_ uiViewController: UIViewController, coordinator: Coordinator) {
+        coordinator.stopSessionIfNeeded()
+    }
+
+    final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
+        var session: AVCaptureSession?
+        var previewLayer: AVCaptureVideoPreviewLayer?
+        private let sessionQueue = DispatchQueue(label: "barcode.scanner.session.queue", qos: .userInitiated)
+        private var hasScanned = false
+        private let onScanned: (String) -> Void
+        private let dismiss: () -> Void
+
+        init(onScanned: @escaping (String) -> Void, dismiss: @escaping () -> Void) {
+            self.onScanned = onScanned
+            self.dismiss = dismiss
+        }
+
+        func startSessionIfNeeded() {
+            sessionQueue.async { [weak self] in
+                guard let self, let session = self.session, !session.isRunning else { return }
+                session.startRunning()
+            }
+        }
+
+        func stopSessionIfNeeded() {
+            sessionQueue.async { [weak self] in
+                guard let self, let session = self.session, session.isRunning else { return }
+                session.stopRunning()
+            }
+        }
+
+        func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+            guard !hasScanned,
+                  let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+                  let value = object.stringValue else { return }
+
+            hasScanned = true
+            stopSessionIfNeeded()
+            onScanned(value)
+            dismiss()
         }
     }
 }
